@@ -1,0 +1,32 @@
+---
+# Dynatrace events arrive via AAP Event Stream (mapped to dynatrace_events at activation).
+# Remediation runs on Automation Controller as a Workflow Job Template.
+- name: Dynatrace K8s pod remediation
+  hosts: all
+  sources:
+    - name: dynatrace_events
+      ansible.eda.webhook:
+        host: 0.0.0.0
+        port: 5000
+
+  rules:
+    - name: Remediate failing Kubernetes pod and close ServiceNow incident
+      condition: >
+        event.payload is defined
+        and event.payload.eventType is defined
+        and event.payload.eventType == "K8S_POD_REMEDIATION"
+        and event.payload.namespace is defined
+        and event.payload.pod_name is defined
+        and event.payload.incident_number is defined
+      action:
+        run_workflow_template:
+          name: "{{ remediation_workflow_job_template }}"
+          organization: "{{ controller_organization | default('Default') }}"
+          job_args:
+            extra_vars:
+              namespace: "{{ event.payload.namespace }}"
+              pod_name: "{{ event.payload.pod_name }}"
+              incident_number: "{{ event.payload.incident_number }}"
+              problem_id: "{{ event.payload.problem_id | default('') }}"
+              severity: "{{ event.payload.severity | default('') }}"
+              pod_label_selector: "{{ event.payload.pod_label_selector | default('app=demo-app') }}"

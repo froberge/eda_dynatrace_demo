@@ -1,0 +1,19 @@
+---
+# Optional custom decision environment. AAP 2.5 Event Streams work with the
+# default ansible-rulebook image; use this file when you need pinned collections.
+version: 3
+
+images:
+  base_image:
+    name: quay.io/ansible/ansible-rulebook:latest
+
+dependencies:
+  galaxy:
+    collections:
+      - name: ansible.eda
+      - name: kubernetes.core
+        version: ">=5.0.0"
+      - name: servicenow.itsm
+        version: ">=2.3.0"
+  python:
+    - kubernetes>=28.0.0

@@ -1,0 +1,6 @@
+---
+# Set these as Variables on the EDA rulebook activation (JSON/YAML).
+# Names must match the Workflow Job Template and organization in Automation Controller.
+
+remediation_workflow_job_template: "EDA - Dynatrace K8s Remediation"
+controller_organization: "Default"

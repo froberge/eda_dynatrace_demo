@@ -1,0 +1,7 @@
+---
+collections:
+  - name: ansible.eda
+  - name: kubernetes.core
+    version: ">=5.0.0"
+  - name: servicenow.itsm
+    version: ">=2.3.0"

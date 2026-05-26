@@ -1,0 +1,9 @@
+{
+  "eventType": "K8S_POD_REMEDIATION",
+  "namespace": "eda-demo",
+  "pod_name": "demo-app-REPLACE_ME",
+  "incident_number": "INC0000001",
+  "problem_id": "P-1234567890123456",
+  "severity": "ERROR",
+  "pod_label_selector": "app=demo-app"
+}

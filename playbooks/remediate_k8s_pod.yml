@@ -1,0 +1,45 @@
+---
+- name: Remediate unhealthy Kubernetes pod and close ServiceNow incident
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    pod_unhealthy_phases:
+      - Failed
+      - Unknown
+    pod_unhealthy_waiting_reasons:
+      - CrashLoopBackOff
+      - Error
+      - ImagePullBackOff
+      - ErrImagePull
+    pod_label_selector: "app=demo-app"
+    pod_ready_minimum: 1
+    pod_restart_wait_timeout: 300
+    pod_restart_wait_delay: 10
+    servicenow_close_code: "Solved (Permanently)"
+
+  tasks:
+    - name: Validate required event variables
+      ansible.builtin.assert:
+        that:
+          - namespace | length > 0
+          - pod_name | length > 0
+          - incident_number | length > 0
+        fail_msg: >-
+          namespace, pod_name, and incident_number are required
+          (from Dynatrace workflow event payload).
+
+    - name: Restart pod if unhealthy
+      ansible.builtin.import_tasks: tasks/restart_pod.yml
+
+    - name: Close ServiceNow incident after successful remediation
+      ansible.builtin.import_tasks: tasks/close_servicenow_incident.yml
+      when: pod_remediation_performed | default(false) | bool
+
+    - name: Report when pod was already healthy (no incident closure)
+      ansible.builtin.debug:
+        msg: >-
+          Pod {{ pod_name }} in namespace {{ namespace }} was already healthy or not found.
+          ServiceNow incident {{ incident_number }} was not closed.
+      when: not (pod_remediation_performed | default(false) | bool)

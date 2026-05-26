@@ -1,0 +1,28 @@
+# Secrets and local config
+.env
+.env.*
+*.vault
+vault-pass.txt
+kubeconfig
+kubeconfig.*
+**/kubeconfig
+
+# Ansible
+*.retry
+.ansible/
+ansible_facts/
+
+# Python / EE build
+.venv/
+__pycache__/
+*.pyc
+context/
+
+# OS / IDE
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Local overrides (copy from *.example)
+group_vars/all.yml
