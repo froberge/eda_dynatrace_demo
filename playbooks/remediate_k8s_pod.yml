@@ -4,7 +4,21 @@
   connection: local
   gather_facts: false
 
+  module_defaults:
+    group/kubernetes.core.k8s:
+      host: "{{ k8s_auth_host }}"
+      api_key: "{{ k8s_auth_api_key }}"
+      validate_certs: "{{ k8s_validate_certs }}"
+      ca_cert: "{{ k8s_ssl_ca_cert if (k8s_ssl_ca_cert | length > 0) else omit }}"
+
   vars:
+    # Injected by AAP "OpenShift or Kubernetes API Bearer Token" on the job template
+    k8s_auth_host: "{{ lookup('env', 'K8S_AUTH_HOST') | default('', true) | regex_replace('/$', '') }}"
+    k8s_auth_api_key: "{{ lookup('env', 'K8S_AUTH_API_KEY') | default('', true) }}"
+    k8s_validate_certs: >-
+      {{ lookup('env', 'K8S_AUTH_VERIFY_SSL') | default('yes', true) | lower
+         not in ['no', 'false', '0'] }}
+    k8s_ssl_ca_cert: "{{ lookup('env', 'K8S_AUTH_SSL_CA_CERT') | default('', true) }}"
     pod_unhealthy_phases:
       - Failed
       - Unknown
@@ -27,6 +41,18 @@
         fail_msg: >-
           namespace and pod_name are required
           (from Dynatrace workflow / EDA event payload).
+
+    - name: Validate Kubernetes API credential is available to the job
+      ansible.builtin.assert:
+        that:
+          - k8s_auth_host | length > 0
+          - k8s_auth_api_key | length > 0
+        fail_msg: >-
+          No Kubernetes API authentication in this job (modules would call the API as
+          system:anonymous). On job template EDA - Remediate K8s Pod, attach credential
+          type OpenShift or Kubernetes API Bearer Token, then sync the project and re-run.
+          For workflow launches, enable Prompt on launch for credentials if your AAP
+          version requires selecting the credential at launch.
 
     - name: Read pod state
       kubernetes.core.k8s_info:

@@ -65,8 +65,9 @@ The remediation playbook runs on **`localhost`** and calls the API via `kubernet
 | Project | This repository |
 | Playbook | `playbooks/remediate_k8s_pod.yml` |
 | Execution environment | Controller EE with `kubernetes.core` + `servicenow.itsm` |
-| Credentials | OpenShift/Kubernetes API (cluster) + ServiceNow (as needed) |
+| Credentials | **OpenShift or Kubernetes API Bearer Token** (required) |
 | **Prompt on launch → Extra Variables** | **Enabled** (required for EDA `run_workflow_template`) |
+| **Prompt on launch → Credentials** | **Enabled** if workflow jobs fail with `system:anonymous` |
 
 Optional: add a **Survey** with fields `namespace`, `pod_name`, `incident_number`, `problem_id`, `pod_label_selector` for manual runs. EDA passes the same keys via `job_args.extra_vars`.
 
@@ -122,7 +123,8 @@ The engine also injects `ansible_eda` (event metadata). **Prompt on launch** for
 | `Variables ansible_eda are not allowed on launch` | Enable **Prompt on launch** for Extra Variables on the **workflow** template |
 | Workflow runs but extra vars empty | Enable prompt on launch on the **job** template; check activation variable names |
 | `run_workflow_template` cannot find template | `remediation_workflow_job_template` matches workflow name and `controller_organization` |
-| K8s/SN failures | OpenShift credential on **job template**; see [aap-openshift-inventory.md](aap-openshift-inventory.md) RBAC |
+| `system:anonymous` / cannot get `/apis` | Attach **OpenShift or Kubernetes API Bearer Token** to the **job template** (not only inventory); enable credential prompt on workflow if needed |
+| K8s Forbidden / RBAC | Same credential; SA token and ClusterRole in [aap-openshift-inventory.md](aap-openshift-inventory.md) |
 | Inventory sync Forbidden | ServiceAccount token and ClusterRole in `k8s/rbac/openshift_aap_sa.yaml` |
 | Wrong hosts / VM-only inventory | Use **Sourced from a Project** + `inventory/openshift_k8s_inventory.py`, not OpenShift Virtualization |
 | `k8s inventory plugin has been removed` | Inventory file must be `.py` script, not YAML `plugin: kubernetes.core.k8s` (EE has kubernetes.core 6.x) |
