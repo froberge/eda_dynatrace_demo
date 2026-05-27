@@ -1,5 +1,5 @@
 ---
-- name: Remediate unhealthy Kubernetes pod and close ServiceNow incident
+- name: Remediate unhealthy Kubernetes pod
   hosts: localhost
   connection: local
   gather_facts: false
@@ -17,29 +17,104 @@
     pod_ready_minimum: 1
     pod_restart_wait_timeout: 300
     pod_restart_wait_delay: 10
-    servicenow_close_code: "Solved (Permanently)"
 
   tasks:
-    - name: Validate required event variables
+    - name: Validate required variables
       ansible.builtin.assert:
         that:
           - namespace | length > 0
           - pod_name | length > 0
-          - incident_number | length > 0
         fail_msg: >-
-          namespace, pod_name, and incident_number are required
-          (from Dynatrace workflow event payload).
+          namespace and pod_name are required
+          (from Dynatrace workflow / EDA event payload).
 
-    - name: Restart pod if unhealthy
-      ansible.builtin.import_tasks: tasks/restart_pod.yml
+    - name: Read pod state
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Pod
+        name: "{{ pod_name }}"
+        namespace: "{{ namespace }}"
+      register: pod_info
 
-    - name: Close ServiceNow incident after successful remediation
-      ansible.builtin.import_tasks: tasks/close_servicenow_incident.yml
-      when: pod_remediation_performed | default(false) | bool
+    - name: Evaluate pod health
+      ansible.builtin.set_fact:
+        pod_exists: "{{ pod_info.resources | length > 0 }}"
+        pod_phase: "{{ pod_info.resources[0].status.phase if pod_info.resources | length > 0 else '' }}"
+        pod_waiting_reason: >-
+          {{
+            (
+              pod_info.resources[0].status.containerStatuses | default([])
+              | selectattr('state.waiting', 'defined')
+              | map(attribute='state.waiting.reason')
+              | list
+              | first
+              | default('', true)
+            ) if pod_info.resources | length > 0 else ''
+          }}
 
-    - name: Report when pod was already healthy (no incident closure)
+    - name: Determine if pod needs remediation
+      ansible.builtin.set_fact:
+        pod_needs_remediation: >-
+          {{
+            pod_exists | bool
+            and (
+              pod_phase in pod_unhealthy_phases
+              or pod_waiting_reason in pod_unhealthy_waiting_reasons
+            )
+          }}
+
+    - name: Pod is healthy or absent — skip restart
+      ansible.builtin.set_fact:
+        pod_remediation_performed: false
+      when: not pod_needs_remediation | bool
+
+    - name: Delete unhealthy pod (Deployment will recreate it)
+      when: pod_needs_remediation | bool
+      block:
+        - name: Remove pod
+          kubernetes.core.k8s:
+            api_version: v1
+            kind: Pod
+            name: "{{ pod_name }}"
+            namespace: "{{ namespace }}"
+            state: absent
+            wait: true
+            wait_timeout: "{{ pod_restart_wait_timeout }}"
+
+        - name: Wait for workload pods to be Ready
+          kubernetes.core.k8s_info:
+            api_version: v1
+            kind: Pod
+            namespace: "{{ namespace }}"
+            label_selector: "{{ pod_label_selector }}"
+          register: workload_pods
+          until: >
+            workload_pods.resources | length > 0
+            and (
+              workload_pods.resources
+              | selectattr('status.conditions', 'defined')
+              | selectattr('status.phase', 'equalto', 'Running')
+              | list
+              | length
+            ) >= (pod_ready_minimum | default(1) | int)
+          retries: "{{ (pod_restart_wait_timeout | int) // (pod_restart_wait_delay | int) }}"
+          delay: "{{ pod_restart_wait_delay }}"
+          when: pod_label_selector is defined and pod_label_selector | length > 0
+
+        - name: Mark remediation complete
+          ansible.builtin.set_fact:
+            pod_remediation_performed: true
+
+    - name: Report pod deleted and workload recovering
       ansible.builtin.debug:
         msg: >-
-          Pod {{ pod_name }} in namespace {{ namespace }} was already healthy or not found.
-          ServiceNow incident {{ incident_number }} was not closed.
+          Deleted pod {{ pod_name }} in namespace {{ namespace }}.
+          Waiting for replacement pods (selector {{ pod_label_selector }}).
+      when: pod_remediation_performed | default(false) | bool
+
+    - name: Report pod already healthy or not found
+      ansible.builtin.debug:
+        msg: >-
+          Pod {{ pod_name }} in namespace {{ namespace }} was already healthy or not found;
+          no delete performed.
       when: not (pod_remediation_performed | default(false) | bool)

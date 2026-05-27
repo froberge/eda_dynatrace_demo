@@ -37,7 +37,7 @@ sequenceDiagram
 | Path | Description |
 |------|-------------|
 | [`rulebooks/k8s_pod_remediation.yml`](rulebooks/k8s_pod_remediation.yml) | EDA rulebook → `run_workflow_template` on Controller |
-| [`playbooks/remediate_k8s_pod.yml`](playbooks/remediate_k8s_pod.yml) | Restart pod + close incident (Controller job template playbook) |
+| [`playbooks/remediate_k8s_pod.yml`](playbooks/remediate_k8s_pod.yml) | Delete unhealthy pod and wait for workload (Controller job template playbook) |
 | [`docs/aap-controller-workflow.md`](docs/aap-controller-workflow.md) | Job template + workflow job template setup |
 | [`vars/aap_controller.yml.example`](vars/aap_controller.yml.example) | Activation variables for workflow template name |
 | [`k8s/`](k8s/) | Sample `demo-app` Deployment for the demo |
