@@ -1,0 +1,8 @@
+---
+# Dynamic inventory for Automation Controller (Sourced from a Project).
+# Credential: OpenShift or Kubernetes API Bearer Token on the inventory source.
+# EE must include kubernetes.core (same as remediation job template).
+# No namespaces filter: discover pods in all namespaces the SA can list.
+plugin: kubernetes.core.k8s
+connections:
+  - {}
