@@ -4,11 +4,7 @@
 - name: Dynatrace K8s pod remediation
   hosts: all
   sources:
-    - name: dynatrace_events
-      ansible.eda.webhook:
-        host: 0.0.0.0
-        port: 5000
-
+      - ansible.eda.event_stream:
   rules:
     - name: Remediate failing Kubernetes pod and close ServiceNow incident
       condition: >
