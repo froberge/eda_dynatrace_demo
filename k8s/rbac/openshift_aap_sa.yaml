@@ -1,0 +1,53 @@
+---
+# ServiceAccount and RBAC for Ansible Automation Platform OpenShift inventory + demo remediation.
+# Demo scope: cluster-wide read for inventory sync; cluster-wide pod delete/patch for remediate_k8s_pod.yml.
+# Tighten for production (namespace-scoped Roles, separate read-only inventory SA).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: aap
+  labels:
+    app.kubernetes.io/part-of: eda-dynatrace-demo
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: aap-inventory
+  namespace: aap
+  labels:
+    app.kubernetes.io/part-of: eda-dynatrace-demo
+    app.kubernetes.io/component: aap-inventory
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: aap-inventory-demo
+  labels:
+    app.kubernetes.io/part-of: eda-dynatrace-demo
+rules:
+  # OpenShift / Kubernetes inventory source (list and watch workloads)
+  - apiGroups: [""]
+    resources: ["namespaces", "pods", "nodes"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets"]
+    verbs: ["get", "list", "watch"]
+  # Demo remediation: restart pod by delete (kubernetes.core.k8s state: absent)
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch", "delete", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: aap-inventory-demo
+  labels:
+    app.kubernetes.io/part-of: eda-dynatrace-demo
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: aap-inventory-demo
+subjects:
+  - kind: ServiceAccount
+    name: aap-inventory
+    namespace: aap
