@@ -24,7 +24,7 @@ Build or select an EE that includes:
 - `kubernetes.core`
 - `servicenow.itsm`
 
-See [`collections/requirements.yml`](../collections/requirements.yml) and [`execution-environment.yml`](../execution-environment.yml).
+See [`collections/requirements.yml`](../collections/requirements.yml) and [build-decision-environment.md](build-decision-environment.md) (build from [`execution-environment.yml`](../execution-environment.yml)).
 
 The EDA decision environment only needs `ansible.eda` for the rulebook; **job execution** uses this Controller EE.
 

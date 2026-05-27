@@ -1,12 +1,12 @@
 # Ansible Automation Platform setup
 
-Configure AAP 2.5+ Event-Driven Ansible (EDA) to receive Dynatrace workflow events and launch remediation on **Automation Controller** via a **Workflow Job Template**.
+Configure AAP 2.6+ Event-Driven Ansible (EDA) to receive Dynatrace workflow events and launch remediation on **Automation Controller** via a **Workflow Job Template**.
 
 **Controller workflow setup (job template, workflow template, credentials):** [aap-controller-workflow.md](aap-controller-workflow.md)
 
 ## Prerequisites
 
-- Ansible Automation Platform 2.5 or newer with EDA enabled
+- Ansible Automation Platform 2.6 or newer with EDA enabled
 - Git access to this repository
 - Kubernetes API access from the decision environment execution context
 - ServiceNow credentials for incident closure
@@ -14,6 +14,8 @@ Configure AAP 2.5+ Event-Driven Ansible (EDA) to receive Dynatrace workflow even
 ## 1. Install collections in the decision environment
 
 Use the platform default decision environment (`ansible-rulebook` image) or build a custom environment from [`execution-environment.yml`](../execution-environment.yml).
+
+**Build and push commands:** [build-decision-environment.md](build-decision-environment.md)
 
 Collections required (see [`collections/requirements.yml`](../collections/requirements.yml)):
 
@@ -108,5 +110,5 @@ Use the Event Stream POST URL and token in the Dynatrace **Red Hat Event-Driven 
 
 ## References
 
-- [Red Hat simplified event routing](https://docs.redhat.com/en/documentation/red_hat_ansible_automation_platform/2.5/html/using_automation_decisions/simplified-event-routing)
+- [Red Hat simplified event routing](https://docs.redhat.com/en/documentation/red_hat_ansible_automation_platform/2.6/html/using_automation_decisions/simplified-event-routing)
 - [Dynatrace Red Hat EDA integration](https://docs.dynatrace.com/docs/analyze-explore-automate/workflows/default-workflow-actions/actions/red-hat/redhat-even-driven-ansible)

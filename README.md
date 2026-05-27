@@ -43,6 +43,11 @@ sequenceDiagram
 | [`k8s/`](k8s/) | Sample `demo-app` Deployment for the demo |
 | [`samples/`](samples/) | Example event JSON and curl test script |
 | [`docs/`](docs/) | AAP, Dynatrace, and ServiceNow setup guides |
+| [`docs/build-decision-environment.md`](docs/build-decision-environment.md) | Build/push EE image (`linux/amd64`, OpenShift-friendly `/runner` HOME) |
+| [`scripts/build-ee.sh`](scripts/build-ee.sh) | Build + verify EE image |
+| [`scripts/verify-ee.sh`](scripts/verify-ee.sh) | Pre-push checks (HOME, ansible.eda, galaxy) |
+| [`scripts/build-ee.sh`](scripts/build-ee.sh) | Wrapper: `ansible-builder` with `--platform linux/amd64` |
+| [`execution-environment.yml`](execution-environment.yml) | ansible-builder definition (EDA + Controller) |
 | [`collections/requirements.yml`](collections/requirements.yml) | Ansible collections |
 
 ## Event payload contract
@@ -77,18 +82,6 @@ export POD_NAME="<failing-pod>"
 export INCIDENT_NUMBER="INC0000001"
 chmod +x samples/curl_post_event.sh
 ./samples/curl_post_event.sh
-```
-
-### Test playbook locally
-
-```bash
-cp group_vars/all.yml.example group_vars/all.yml
-ansible-galaxy collection install -r collections/requirements.yml
-export KUBECONFIG=~/.kube/config
-export SN_HOST=https://your-instance.service-now.com
-export SN_USERNAME=integration
-export SN_PASSWORD=secret
-ansible-playbook playbooks/remediate_k8s_pod.yml -e @samples/dynatrace_eda_event.json
 ```
 
 ## Collections

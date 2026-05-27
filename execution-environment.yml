@@ -1,19 +1,50 @@
 ---
-# Optional custom decision environment. AAP 2.5 Event Streams work with the
-# default ansible-rulebook image; use this file when you need pinned collections.
+# Builder-friendly decision / execution environment (EDA + Controller).
+# Do not use quay.io/ansible/ansible-rulebook as base_image — that image is a
+# finished DE; ansible-builder needs an RPM base with an explicit Python 3.12+.
+# Pattern: https://github.com/ansible/ansible-rulebook/blob/main/minimal-decision-environment.yml
 version: 3
 
 images:
   base_image:
-    name: quay.io/ansible/ansible-rulebook:latest
+    name: registry.access.redhat.com/ubi9/python-312-minimal:latest
+
+options:
+  package_manager_path: /usr/bin/microdnf
+  # OpenShift/AAP run activations as arbitrary UID in group 0; /runner must be group-writable.
+  workdir: /runner
+  relax_passwd_permissions: true
 
 dependencies:
+  python_interpreter:
+    python_path: /usr/bin/python3.12
   galaxy:
     collections:
       - name: ansible.eda
+        version: ">=2.12.0"
       - name: kubernetes.core
         version: ">=5.0.0"
       - name: servicenow.itsm
         version: ">=2.3.0"
+  # kubernetes.core bindep; not in UBI repos. Demo uses k8s Python client, not kubectl plugin.
+  exclude:
+    system:
+      - openshift-clients
   python:
+    - ansible-rulebook
     - kubernetes>=28.0.0
+  ansible_core:
+    package_pip: ansible-core~=2.16.0
+  ansible_runner:
+    package_pip: ansible-runner
+  system:
+    - java-17-openjdk-headless [platform:rpm]
+    - python3.12-devel [compile platform:rpm]
+
+additional_build_steps:
+  append_final:
+    - ENV HOME=/runner
+    - ENV ANSIBLE_HOME=/runner/.ansible
+    - RUN mkdir -p /runner/.ansible /runner/.cache && chmod -R g+rwX /runner && chgrp -R 0 /runner
+    # UBI base WORKDIR; some runtimes still set HOME here — allow arbitrary OpenShift UID to write.
+    - RUN mkdir -p /opt/app-root/src/.ansible && chmod -R g+rwX /opt/app-root/src && chgrp -R 0 /opt/app-root/src

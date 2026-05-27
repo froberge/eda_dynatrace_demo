@@ -24,5 +24,4 @@ context/
 .vscode/
 *.swp
 
-# Local overrides (copy from *.example)
-group_vars/all.yml
+.cursor/
