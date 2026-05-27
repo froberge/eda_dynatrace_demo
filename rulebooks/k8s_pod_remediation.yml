@@ -1,10 +1,12 @@
 ---
-# Dynatrace events arrive via AAP Event Stream (mapped to dynatrace_events at activation).
+# Dynatrace events arrive via AAP Token Event Stream (map to source dynatrace_events on the activation).
 # Remediation runs on Automation Controller as a Workflow Job Template.
 - name: Dynatrace K8s pod remediation
   hosts: all
   sources:
-      - ansible.eda.event_stream:
+    - name: dynatrace_events
+      ansible.eda.event_stream:
+
   rules:
     - name: Remediate failing Kubernetes pod and close ServiceNow incident
       condition: >
