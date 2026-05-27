@@ -32,7 +32,7 @@ dependencies:
       - openshift-clients
   python:
     - ansible-rulebook
-    - kubernetes>=28.0.0
+    - kubernetes>=28.0.0,<36
   ansible_core:
     package_pip: ansible-core~=2.16.0
   ansible_runner:

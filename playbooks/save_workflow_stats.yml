@@ -1,0 +1,12 @@
+---
+- name: Save the different variable used in the workflow
+  hosts: all
+
+  tasks:
+    - name: Save the value for the workflow for later use
+      ansible.builtin.set_stats:
+        data:
+          eventType: "{{ eventType }}"
+          namespace: "{{ namespace }}"
+          pod_name: "{{ pod_name }}"
+          sn_incident_number: "{{ sn_incident_number }}"
