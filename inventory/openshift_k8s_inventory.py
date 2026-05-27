@@ -18,32 +18,9 @@ import json
 import os
 import ssl
 import sys
-import time
 import urllib.error
 import urllib.parse
 import urllib.request
-
-
-def _agent_log(hypothesis_id: str, message: str, data: dict) -> None:
-    # #region agent log
-    log_path = os.environ.get("AGENT_DEBUG_LOG_PATH")
-    if not log_path:
-        return
-    try:
-        entry = {
-            "sessionId": "5606a3",
-            "runId": os.environ.get("AGENT_RUN_ID", "inventory"),
-            "hypothesisId": hypothesis_id,
-            "location": "inventory/openshift_k8s_inventory.py",
-            "message": message,
-            "data": data,
-            "timestamp": int(time.time() * 1000),
-        }
-        with open(log_path, "a", encoding="utf-8") as handle:
-            handle.write(json.dumps(entry) + "\n")
-    except OSError:
-        pass
-    # #endregion
 
 
 def _api_base_url() -> str:
@@ -112,13 +89,10 @@ def _safe_group_name(namespace: str) -> str:
 
 
 def build_inventory() -> dict:
-    _agent_log("H4", "listing pods via stdlib urllib", {"client": "stdlib"})
     inventory: dict = {"_meta": {"hostvars": {}}, "all": {"children": []}}
     groups: dict[str, dict] = {}
-    pod_count = 0
 
     for pod in list_all_pods():
-        pod_count += 1
         meta = pod.get("metadata") or {}
         status = pod.get("status") or {}
         name = meta.get("name", "")
@@ -138,7 +112,6 @@ def build_inventory() -> dict:
 
     inventory.update(groups)
     inventory["all"]["children"] = sorted(groups.keys()) if groups else ["ungrouped"]
-    _agent_log("H3", "inventory built", {"pod_count": pod_count, "group_count": len(groups)})
     return inventory
 
 
@@ -156,7 +129,6 @@ def main() -> None:
             hostvars = inv.get("_meta", {}).get("hostvars", {})
             print(json.dumps(hostvars.get(args.host, {}), indent=None))
     except (urllib.error.URLError, urllib.error.HTTPError, OSError, json.JSONDecodeError) as exc:
-        _agent_log("H2", "inventory script failed", {"error_type": type(exc).__name__, "error": str(exc)[:300]})
         print(f"openshift_k8s_inventory.py: {exc}", file=sys.stderr)
         sys.exit(1)
 
