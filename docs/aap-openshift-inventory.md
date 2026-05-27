@@ -2,7 +2,7 @@
 
 Connect an OpenShift cluster to **Automation Controller** using a dedicated **ServiceAccount** and an **OpenShift / Kubernetes API Bearer Token** credential. Use the same credential for:
 
-- **Inventory source** — discover namespaces and pods (project-sourced `kubernetes.core.k8s` plugin)
+- **Inventory source** — discover namespaces and pods (project-sourced [`inventory/openshift_k8s_inventory.py`](../inventory/openshift_k8s_inventory.py) script; works with `kubernetes.core` 6.x)
 - **Job template** — `kubernetes.core` API calls in [`playbooks/remediate_k8s_pod.yml`](../playbooks/remediate_k8s_pod.yml) (runs on `localhost` inventory; API auth via credential)
 
 ## Architecture
@@ -12,7 +12,7 @@ OpenShift cluster
   └── ServiceAccount aap-inventory (namespace aap)
         └── ClusterRole aap-inventory-demo (demo: read + pod delete cluster-wide)
               └── token → AAP Credential
-                    ├── Inventory → Sourced from a Project (inventory/openshift_k8s_inventory.yml) → Sync
+                    ├── Inventory → Sourced from a Project (inventory/openshift_k8s_inventory.py) → Sync
                     └── Job template EDA - Remediate K8s Pod (EDA Localhost + same credential)
 ```
 
@@ -23,7 +23,7 @@ Automation Controller does **not** ship a built-in inventory source that lists *
 | Source in UI | Use for this demo? |
 |--------------|-------------------|
 | **OpenShift Virtualization** | **No** — VMs only |
-| **Sourced from a Project** | **Yes** — use [`inventory/openshift_k8s_inventory.yml`](../inventory/openshift_k8s_inventory.yml) with `kubernetes.core.k8s` |
+| **Sourced from a Project** | **Yes** — use [`inventory/openshift_k8s_inventory.py`](../inventory/openshift_k8s_inventory.py) (not the removed `kubernetes.core.k8s` YAML plugin) |
 | *(no inventory sync)* | **Yes** for EDA-only — `EDA Localhost` + credential on the job template is enough for remediation |
 
 ## 1. Apply RBAC on OpenShift
@@ -93,12 +93,14 @@ oc get configmap kube-root-ca.crt -n aap \
 2. Open the inventory → **Sources** → **Add**.
 3. **Source:** **Sourced from a Project** (not OpenShift Virtualization).
 4. **Project:** the same Git project as this repository (Controller must sync the project first).
-5. **Inventory file:** `inventory/openshift_k8s_inventory.yml`
+5. **Inventory file:** `inventory/openshift_k8s_inventory.py`
 6. **Credential:** `OpenShift Demo API` from step 4.
 7. **Execution environment:** Controller EE that includes `kubernetes.core` (same EE as the remediation job template).
 8. **Save** and run **Sync**.
 
-The inventory file uses the [`kubernetes.core.k8s`](https://docs.ansible.com/ansible/latest/collections/kubernetes/core/k8s_inventory.html) plugin with **no namespace filter**, so sync lists pods in all namespaces the ServiceAccount can `list`. To limit scope, add a `namespaces` list under `connections` in [`inventory/openshift_k8s_inventory.yml`](../inventory/openshift_k8s_inventory.yml).
+The inventory file is an **executable Python script** that lists pods in all namespaces the ServiceAccount can `list`. It replaces the removed [`kubernetes.core.k8s`](https://docs.ansible.com/ansible/latest/collections/kubernetes/core/k8s_inventory.html) inventory plugin (removed in collection 6.0.0). AAP must be able to execute the script (default for project-sourced inventory).
+
+**Do not** use `inventory/openshift_k8s_inventory.yml` with `plugin: kubernetes.core.k8s` on Execution Environments that ship `kubernetes.core` 6.x—you will see `k8s inventory plugin has been removed`.
 
 After sync, expect groups such as `namespace_*` with pod hosts listed underneath (exact group names depend on collection version).
 
@@ -123,7 +125,7 @@ Do **not** point the remediation job at `OpenShift Demo` inventory hosts expecti
 
 ## 7. Verify end-to-end
 
-1. **Inventory sync:** job log references `kubernetes.core.k8s`; hosts appear under namespace groups.
+1. **Inventory sync:** job log shows `openshift_k8s_inventory.py` completing; hosts appear under `namespace_*` groups.
 2. Deploy the demo app: [k8s/README.md](../k8s/README.md)
 3. Run job template manually with extra vars from [`samples/dynatrace_eda_event.json`](../samples/dynatrace_eda_event.json)
 4. Or POST a test event: [`samples/curl_post_event.sh`](../samples/curl_post_event.sh)
@@ -143,7 +145,8 @@ The demo [`ClusterRole`](../k8s/rbac/openshift_aap_sa.yaml) grants **cluster-wid
 |---------|----------------|
 | Inventory file missing in AAP UI | File must exist on the Git branch the **Project** syncs (commit and push), then **Project → Sync** before setting the inventory source path |
 | Inventory sync fails with Forbidden | `oc auth can-i` tests; credential on inventory source; SA RBAC |
-| Sync uses wrong plugin / no hosts | Source is **Sourced from a Project**, file `inventory/openshift_k8s_inventory.yml`; not OpenShift Virtualization |
+| `k8s inventory plugin has been removed` | Use **`inventory/openshift_k8s_inventory.py`** (script), not `.yml` with `plugin: kubernetes.core.k8s` |
+| Sync uses wrong plugin / no hosts | Source is **Sourced from a Project**, file `inventory/openshift_k8s_inventory.py`; not OpenShift Virtualization |
 | Job cannot delete pod | Same credential on **job template** (not only on inventory source) |
 | TLS errors | CA file matches cluster; API URL has no trailing slash; or lab-only disable SSL verify |
 | Empty inventory after sync | SA can `list pods` cluster-wide; credential attached to inventory source; re-sync after project update |

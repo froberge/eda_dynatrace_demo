@@ -41,7 +41,7 @@ sequenceDiagram
 | [`docs/aap-controller-workflow.md`](docs/aap-controller-workflow.md) | Job template + workflow job template setup |
 | [`vars/aap_controller.yml.example`](vars/aap_controller.yml.example) | Activation variables for workflow template name |
 | [`k8s/`](k8s/) | Sample `demo-app` Deployment for the demo |
-| [`inventory/openshift_k8s_inventory.yml`](inventory/openshift_k8s_inventory.yml) | `kubernetes.core.k8s` inventory for project-sourced sync |
+| [`inventory/openshift_k8s_inventory.py`](inventory/openshift_k8s_inventory.py) | Dynamic pod inventory script (kubernetes.core 6.x compatible) |
 | [`k8s/rbac/openshift_aap_sa.yaml`](k8s/rbac/openshift_aap_sa.yaml) | ServiceAccount + ClusterRole for AAP OpenShift inventory |
 | [`docs/aap-openshift-inventory.md`](docs/aap-openshift-inventory.md) | OpenShift inventory credential and sync |
 | [`samples/`](samples/) | Example event JSON and curl test script |

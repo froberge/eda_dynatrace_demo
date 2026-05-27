@@ -41,7 +41,7 @@ oc create token aap-inventory -n aap --duration=8760h
 
 Use that token in an **OpenShift or Kubernetes API Bearer Token** credential in Controller, then:
 
-1. **(Optional)** Inventory `OpenShift Demo` → source **Sourced from a Project** → `inventory/openshift_k8s_inventory.yml` — see [aap-openshift-inventory.md](aap-openshift-inventory.md). Do **not** use **OpenShift Virtualization** (VMs only).
+1. **(Optional)** Inventory `OpenShift Demo` → source **Sourced from a Project** → `inventory/openshift_k8s_inventory.py` — see [aap-openshift-inventory.md](aap-openshift-inventory.md). Do **not** use **OpenShift Virtualization** (VMs only).
 2. Attach the **same credential** to job template `EDA - Remediate K8s Pod` (required).
 
 The remediation playbook runs on **`localhost`** and calls the API via `kubernetes.core`. Dynamic inventory is for cluster assessment; EDA remediation does not require inventory sync.
@@ -51,7 +51,7 @@ The remediation playbook runs on **`localhost`** and calls the API via `kubernet
 | Object | Settings |
 |--------|----------|
 | **Inventory (remediation / EDA)** | `EDA Localhost` — single host `localhost` |
-| **Inventory (optional assessment)** | `OpenShift Demo` — **Sourced from a Project**, file `inventory/openshift_k8s_inventory.yml` |
+| **Inventory (optional assessment)** | `OpenShift Demo` — **Sourced from a Project**, file `inventory/openshift_k8s_inventory.py` |
 | **Credential (OpenShift/Kubernetes)** | Bearer token from `aap-inventory` ServiceAccount — inventory source (if used) + job template |
 | **Credential (ServiceNow)** | ServiceNow or custom type — attach to job template, or use `SN_*` injected via credential |
 
@@ -124,7 +124,8 @@ The engine also injects `ansible_eda` (event metadata). **Prompt on launch** for
 | `run_workflow_template` cannot find template | `remediation_workflow_job_template` matches workflow name and `controller_organization` |
 | K8s/SN failures | OpenShift credential on **job template**; see [aap-openshift-inventory.md](aap-openshift-inventory.md) RBAC |
 | Inventory sync Forbidden | ServiceAccount token and ClusterRole in `k8s/rbac/openshift_aap_sa.yaml` |
-| Wrong hosts / VM-only inventory | Use **Sourced from a Project** + `inventory/openshift_k8s_inventory.yml`, not OpenShift Virtualization |
+| Wrong hosts / VM-only inventory | Use **Sourced from a Project** + `inventory/openshift_k8s_inventory.py`, not OpenShift Virtualization |
+| `k8s inventory plugin has been removed` | Inventory file must be `.py` script, not YAML `plugin: kubernetes.core.k8s` (EE has kubernetes.core 6.x) |
 | Inventory sync OK but job fails | Remediation uses **EDA Localhost** + credential on job template, not pod SSH hosts |
 
 ## References
