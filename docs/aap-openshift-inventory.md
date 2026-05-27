@@ -95,10 +95,10 @@ oc get configmap kube-root-ca.crt -n aap \
 4. **Project:** the same Git project as this repository (Controller must sync the project first).
 5. **Inventory file:** `inventory/openshift_k8s_inventory.py`
 6. **Credential:** `OpenShift Demo API` from step 4.
-7. **Execution environment:** Controller EE that includes `kubernetes.core` (same EE as the remediation job template).
+7. **Execution environment:** Any Controller EE with Python 3 (the inventory script uses **stdlib only**; it does not require the `kubernetes` pip package). Use your custom EE or the platform EE.
 8. **Save** and run **Sync**.
 
-The inventory file is an **executable Python script** that lists pods in all namespaces the ServiceAccount can `list`. It replaces the removed [`kubernetes.core.k8s`](https://docs.ansible.com/ansible/latest/collections/kubernetes/core/k8s_inventory.html) inventory plugin (removed in collection 6.0.0). AAP must be able to execute the script (default for project-sourced inventory).
+The inventory file is an **executable Python script** that lists pods in all namespaces the ServiceAccount can `list` via the Kubernetes API (`urllib`, no `kubernetes` pip module). It replaces the removed [`kubernetes.core.k8s`](https://docs.ansible.com/ansible/latest/collections/kubernetes/core/k8s_inventory.html) inventory plugin (removed in collection 6.0.0).
 
 **Do not** use `inventory/openshift_k8s_inventory.yml` with `plugin: kubernetes.core.k8s` on Execution Environments that ship `kubernetes.core` 6.x—you will see `k8s inventory plugin has been removed`.
 
@@ -146,6 +146,7 @@ The demo [`ClusterRole`](../k8s/rbac/openshift_aap_sa.yaml) grants **cluster-wid
 | Inventory file missing in AAP UI | File must exist on the Git branch the **Project** syncs (commit and push), then **Project → Sync** before setting the inventory source path |
 | Inventory sync fails with Forbidden | `oc auth can-i` tests; credential on inventory source; SA RBAC |
 | `k8s inventory plugin has been removed` | Use **`inventory/openshift_k8s_inventory.py`** (script), not `.yml` with `plugin: kubernetes.core.k8s` |
+| `No module named 'kubernetes'` | Pull latest repo (script uses stdlib only); re-sync project and inventory source |
 | Sync uses wrong plugin / no hosts | Source is **Sourced from a Project**, file `inventory/openshift_k8s_inventory.py`; not OpenShift Virtualization |
 | Job cannot delete pod | Same credential on **job template** (not only on inventory source) |
 | TLS errors | CA file matches cluster; API URL has no trailing slash; or lab-only disable SSL verify |

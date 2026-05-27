@@ -43,6 +43,13 @@ fi
 python3 -m py_compile "${SCRIPT}"
 _log "H1" "inventory script syntax ok" "{}"
 
+if python3 -c "import ast; ast.parse(open('${SCRIPT}').read()); import pathlib; s=pathlib.Path('${SCRIPT}').read_text(); exit(0 if 'import kubernetes' not in s and 'from kubernetes' not in s else 1)"; then
+  _log "H4" "inventory script has no kubernetes pip import" "{\"stdlib_only\":true}"
+else
+  _log "H4" "inventory script has no kubernetes pip import" "{\"stdlib_only\":false}"
+  exit 1
+fi
+
 if command -v ansible-galaxy >/dev/null 2>&1; then
   KC_VER="$(ansible-galaxy collection list kubernetes.core 2>/dev/null | awk '/kubernetes\.core/ {print $2; exit}')"
   _log "H1" "kubernetes.core version on controller" "{\"version\":\"${KC_VER:-unknown}\"}"
