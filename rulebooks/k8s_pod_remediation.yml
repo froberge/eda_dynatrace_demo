@@ -20,13 +20,8 @@
         and event.payload.incident_number is defined
       action:
         run_workflow_template:
-          name: "{{ remediation_workflow_job_template }}"
-          organization: "{{ controller_organization | default('Default') }}"
+          name: remediate_k8s_cluster
+          organization: Default
           job_args:
             extra_vars:
-              namespace: "{{ event.payload.namespace }}"
-              pod_name: "{{ event.payload.pod_name }}"
-              incident_number: "{{ event.payload.incident_number }}"
-              problem_id: "{{ event.payload.problem_id | default('') }}"
-              severity: "{{ event.payload.severity | default('') }}"
-              pod_label_selector: "{{ event.payload.pod_label_selector | default('app=demo-app') }}"
+              eda_payload: "{{ event.payload.message }}"

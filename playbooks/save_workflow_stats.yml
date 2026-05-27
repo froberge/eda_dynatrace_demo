@@ -6,7 +6,7 @@
     - name: Save the value for the workflow for later use
       ansible.builtin.set_stats:
         data:
-          eventType: "{{ eventType }}"
-          namespace: "{{ namespace }}"
-          pod_name: "{{ pod_name }}"
-          sn_incident_number: "{{ sn_incident_number }}"
+          eventType: "{{ eda_payload.event.payload.eventType }}"
+          namespace: "{{ eda_payload.event.payload.namespace }}"
+          pod_name: "{{ eda_payload.event.payload.pod_name }}"
+          sn_incident_number: "{{ eda_payload.event.payload.sn_incident_number }}"
