@@ -41,12 +41,14 @@ sequenceDiagram
 | [`docs/aap-controller-workflow.md`](docs/aap-controller-workflow.md) | Job template + workflow job template setup |
 | [`vars/aap_controller.yml.example`](vars/aap_controller.yml.example) | Activation variables for workflow template name |
 | [`k8s/`](k8s/) | Sample `demo-app` Deployment for the demo |
+| [`inventory/openshift_k8s_inventory.yml`](inventory/openshift_k8s_inventory.yml) | `kubernetes.core.k8s` inventory for project-sourced sync |
+| [`k8s/rbac/openshift_aap_sa.yaml`](k8s/rbac/openshift_aap_sa.yaml) | ServiceAccount + ClusterRole for AAP OpenShift inventory |
+| [`docs/aap-openshift-inventory.md`](docs/aap-openshift-inventory.md) | OpenShift inventory credential and sync |
 | [`samples/`](samples/) | Example event JSON and curl test script |
 | [`docs/`](docs/) | AAP, Dynatrace, and ServiceNow setup guides |
 | [`docs/build-decision-environment.md`](docs/build-decision-environment.md) | Build/push EE image (`linux/amd64`, OpenShift-friendly `/runner` HOME) |
-| [`scripts/build-ee.sh`](scripts/build-ee.sh) | Build + verify EE image |
+| [`scripts/build-ee.sh`](scripts/build-ee.sh) | Build + verify EE image (`linux/amd64`) |
 | [`scripts/verify-ee.sh`](scripts/verify-ee.sh) | Pre-push checks (HOME, ansible.eda, galaxy) |
-| [`scripts/build-ee.sh`](scripts/build-ee.sh) | Wrapper: `ansible-builder` with `--platform linux/amd64` |
 | [`execution-environment.yml`](execution-environment.yml) | ansible-builder definition (EDA + Controller) |
 | [`collections/requirements.yml`](collections/requirements.yml) | Ansible collections |
 
@@ -67,7 +69,7 @@ Dynatrace workflow **Event data** must be JSON like [`samples/dynatrace_eda_even
 ## Quick start (demo script)
 
 1. Have the demo app deploy
-2. **Configure AAP** — [docs/aap-setup.md](docs/aap-setup.md) (event stream, EDA activation) and [docs/aap-controller-workflow.md](docs/aap-controller-workflow.md) (Controller workflow + job template)
+2. **Configure AAP** — [docs/aap-setup.md](docs/aap-setup.md) (event stream, EDA activation), [docs/aap-openshift-inventory.md](docs/aap-openshift-inventory.md) (OpenShift SA + inventory), and [docs/aap-controller-workflow.md](docs/aap-controller-workflow.md) (Controller workflow + job template)
 3. Dynatrace should be configured
 4. Service now need to be configured
 5. **Break a pod** and confirm Dynatrace fires the workflow

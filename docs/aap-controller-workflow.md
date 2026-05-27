@@ -30,10 +30,29 @@ The EDA decision environment only needs `ansible.eda` for the rulebook; **job ex
 
 ## 3. Inventory and credential
 
+### OpenShift API access (recommended)
+
+Create a ServiceAccount on the cluster and an AAP Bearer token credential. Full steps: **[aap-openshift-inventory.md](aap-openshift-inventory.md)**.
+
+```bash
+oc apply -f k8s/rbac/openshift_aap_sa.yaml
+oc create token aap-inventory -n aap --duration=8760h
+```
+
+Use that token in an **OpenShift or Kubernetes API Bearer Token** credential in Controller, then:
+
+1. **(Optional)** Inventory `OpenShift Demo` → source **Sourced from a Project** → `inventory/openshift_k8s_inventory.yml` — see [aap-openshift-inventory.md](aap-openshift-inventory.md). Do **not** use **OpenShift Virtualization** (VMs only).
+2. Attach the **same credential** to job template `EDA - Remediate K8s Pod` (required).
+
+The remediation playbook runs on **`localhost`** and calls the API via `kubernetes.core`. Dynamic inventory is for cluster assessment; EDA remediation does not require inventory sync.
+
+### Controller objects
+
 | Object | Settings |
 |--------|----------|
-| **Inventory** | `EDA Localhost` — single host `localhost` |
-| **Credential (Kubernetes)** | OpenShift/Kubernetes API — attach to job template |
+| **Inventory (remediation / EDA)** | `EDA Localhost` — single host `localhost` |
+| **Inventory (optional assessment)** | `OpenShift Demo` — **Sourced from a Project**, file `inventory/openshift_k8s_inventory.yml` |
+| **Credential (OpenShift/Kubernetes)** | Bearer token from `aap-inventory` ServiceAccount — inventory source (if used) + job template |
 | **Credential (ServiceNow)** | ServiceNow or custom type — attach to job template, or use `SN_*` injected via credential |
 
 ## 4. Job template
@@ -46,7 +65,7 @@ The EDA decision environment only needs `ansible.eda` for the rulebook; **job ex
 | Project | This repository |
 | Playbook | `playbooks/remediate_k8s_pod.yml` |
 | Execution environment | Controller EE with `kubernetes.core` + `servicenow.itsm` |
-| Credentials | Kubernetes + ServiceNow (as needed) |
+| Credentials | OpenShift/Kubernetes API (cluster) + ServiceNow (as needed) |
 | **Prompt on launch → Extra Variables** | **Enabled** (required for EDA `run_workflow_template`) |
 
 Optional: add a **Survey** with fields `namespace`, `pod_name`, `incident_number`, `problem_id`, `pod_label_selector` for manual runs. EDA passes the same keys via `job_args.extra_vars`.
@@ -103,7 +122,10 @@ The engine also injects `ansible_eda` (event metadata). **Prompt on launch** for
 | `Variables ansible_eda are not allowed on launch` | Enable **Prompt on launch** for Extra Variables on the **workflow** template |
 | Workflow runs but extra vars empty | Enable prompt on launch on the **job** template; check activation variable names |
 | `run_workflow_template` cannot find template | `remediation_workflow_job_template` matches workflow name and `controller_organization` |
-| K8s/SN failures | Credentials on **job template**, not EDA activation |
+| K8s/SN failures | OpenShift credential on **job template**; see [aap-openshift-inventory.md](aap-openshift-inventory.md) RBAC |
+| Inventory sync Forbidden | ServiceAccount token and ClusterRole in `k8s/rbac/openshift_aap_sa.yaml` |
+| Wrong hosts / VM-only inventory | Use **Sourced from a Project** + `inventory/openshift_k8s_inventory.yml`, not OpenShift Virtualization |
+| Inventory sync OK but job fails | Remediation uses **EDA Localhost** + credential on job template, not pod SSH hosts |
 
 ## References
 
