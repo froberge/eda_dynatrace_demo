@@ -5,10 +5,12 @@
   gather_facts: false
 
   vars:
+    # Possible values: Solution provided, Resolved by change, Workaround provided
+    # https://galaxy.ansible.com/ui/repo/published/servicenow/itsm/content/module/incident/
+    servicenow_close_code: Resolved by change
     servicenow_instance: "https://{{ lookup('env', 'SERVICENOW_INSTANCE') }}"
     servicenow_username: "{{ lookup('env', 'SERVICENOW_USERNAME') }}"
     servicenow_password: "{{ lookup('env', 'SERVICENOW_PASSWORD') }}"
-
   tasks:
     - name: Build ServiceNow close notes
       ansible.builtin.set_fact:
@@ -30,8 +32,7 @@
           password: "{{ servicenow_password }}"
         state: closed
         number: "{{ sn_incident_number }}"
-        close_code: Solved (Permanently)
+        close_code: "{{ servicenow_close_code | default(_servicenow_close_code_default) }}"
         close_notes: "{{ servicenow_close_notes_resolved }}"
         other:
           work_notes: "{{ servicenow_close_notes_resolved }}"
-      when: servicenow_instance | length > 0
