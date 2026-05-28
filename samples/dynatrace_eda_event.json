@@ -2,6 +2,6 @@
   "eventType": "K8S_POD_REMEDIATION",
   "namespace": "ai-lab",
   "pod_name": "load-test-app",
-  "incident_number": "INC0000001",
+  "incident_number": "INC0010240",
   "dynatrace_problem_id": "P-1234567890123456"
 }
