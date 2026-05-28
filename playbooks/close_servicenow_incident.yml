@@ -1,30 +1,26 @@
 ---
 - name: Close a ServiceNow Incident
   hosts: localhost
+  connection: local
   gather_facts: false
 
   vars:
-    servicenow_instance: "https://{{ lookup('env', 'SERVICENOW_INSTANCE') }}"
+    servicenow_instance: "{{ lookup('env', 'SERVICENOW_INSTANCE') }}"
     servicenow_username: "{{ lookup('env', 'SERVICENOW_USERNAME') }}"
     servicenow_password: "{{ lookup('env', 'SERVICENOW_PASSWORD') }}"
-  
+
   tasks:
     - name: Build ServiceNow close notes
       ansible.builtin.set_fact:
         servicenow_close_notes_resolved: >-
-          {{
-            servicenow_close_notes
-            if servicenow_close_notes is defined and servicenow_close_notes | length > 0
-            else (
-              'Auto-remediated by Event-Driven Ansible. '
-              ~ 'Restarted pod ' ~ pod_name ~ ' in namespace ' ~ namespace ~ '.'
-              ~ (
-                ' Dynatrace problem: ' ~ dynatrace_problem_id ~ '.'
-                if dynatrace_problem_id is defined and dynatrace_problem_id | length > 0
-                else ''
-              )
-            )
-          }}
+          {% if servicenow_close_notes is defined and servicenow_close_notes | length > 0 %}
+          {{ servicenow_close_notes }}
+          {% else %}
+          Auto-remediated by Event-Driven Ansible. Restarted pod {{ pod_name }} in namespace {{ namespace }}.
+          {% if dynatrace_problem_id is defined and dynatrace_problem_id | length > 0 %}
+          Dynatrace problem: {{ dynatrace_problem_id }}.
+          {% endif %}
+          {% endif %}
 
     - name: Close ServiceNow incident
       servicenow.itsm.incident:
@@ -34,9 +30,8 @@
           password: "{{ servicenow_password }}"
         state: closed
         number: "{{ sn_incident_number }}"
-        close_code: 'Solved (Permanently)'
+        close_code: Solved (Permanently)
         close_notes: "{{ servicenow_close_notes_resolved }}"
         other:
           work_notes: "{{ servicenow_close_notes_resolved }}"
-      when: servicenow_instance is defined
-
+      when: servicenow_instance | length > 0
