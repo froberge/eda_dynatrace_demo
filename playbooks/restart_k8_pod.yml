@@ -1,5 +1,5 @@
 ---
-- name: Remediate unhealthy Kubernetes pod
+- name: Remediate Kubernetes pod
   hosts: localhost
   connection: local
   gather_facts: false
@@ -19,14 +19,7 @@
       {{ lookup('env', 'K8S_AUTH_VERIFY_SSL') | default('yes', true) | lower
          not in ['no', 'false', '0'] }}
     k8s_ssl_ca_cert: "{{ lookup('env', 'K8S_AUTH_SSL_CA_CERT') | default('', true) }}"
-    pod_unhealthy_phases:
-      - Failed
-      - Unknown
-    pod_unhealthy_waiting_reasons:
-      - CrashLoopBackOff
-      - Error
-      - ImagePullBackOff
-      - ErrImagePull
+    load_test_app_namespace: ia-lab
     load_test_app_manifest: "{{ playbook_dir }}/../k8s/load-test-app-pod.yaml"
     pod_restart_wait_timeout: 300
 
@@ -39,6 +32,14 @@
         fail_msg: >-
           namespace and pod_name are required
           (from Dynatrace workflow / EDA event payload).
+
+    - name: Validate target namespace
+      ansible.builtin.assert:
+        that:
+          - namespace == load_test_app_namespace
+        fail_msg: >-
+          Pod remediation only runs in namespace {{ load_test_app_namespace }};
+          received namespace {{ namespace }}.
 
     - name: Validate Kubernetes API credential is available to the job
       ansible.builtin.assert:
@@ -60,40 +61,17 @@
         namespace: "{{ namespace }}"
       register: pod_info
 
-    - name: Evaluate pod health
+    - name: Record whether pod exists
       ansible.builtin.set_fact:
         pod_exists: "{{ pod_info.resources | length > 0 }}"
-        pod_phase: "{{ pod_info.resources[0].status.phase if pod_info.resources | length > 0 else '' }}"
-        pod_waiting_reason: >-
-          {{
-            (
-              pod_info.resources[0].status.containerStatuses | default([])
-              | selectattr('state.waiting', 'defined')
-              | map(attribute='state.waiting.reason')
-              | list
-              | first
-              | default('', true)
-            ) if pod_info.resources | length > 0 else ''
-          }}
 
-    - name: Determine if pod needs remediation
-      ansible.builtin.set_fact:
-        pod_needs_remediation: >-
-          {{
-            pod_exists | bool
-            and (
-              pod_phase in pod_unhealthy_phases
-              or pod_waiting_reason in pod_unhealthy_waiting_reasons
-            )
-          }}
-
-    - name: Pod is healthy or absent — skip restart
+    - name: Pod not found — skip remediation
       ansible.builtin.set_fact:
         pod_remediation_performed: false
-      when: not pod_needs_remediation | bool
+      when: not pod_exists | bool
 
-    - name: Delete unhealthy pod and re-apply manifest
-      when: pod_needs_remediation | bool
+    - name: Delete existing pod and re-apply manifest
+      when: pod_exists | bool
       block:
         - name: Remove pod
           kubernetes.core.k8s:
@@ -126,9 +104,9 @@
           and reapplied {{ load_test_app_manifest }}.
       when: pod_remediation_performed | default(false) | bool
 
-    - name: Report pod already healthy or not found
+    - name: Report pod not found
       ansible.builtin.debug:
         msg: >-
-          Pod {{ pod_name }} in namespace {{ namespace }} was already healthy or not found;
-          no delete performed.
+          Pod {{ pod_name }} was not found in namespace {{ namespace }};
+          no delete or apply performed.
       when: not (pod_remediation_performed | default(false) | bool)
