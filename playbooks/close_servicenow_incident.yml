@@ -40,3 +40,4 @@
       other:
         work_notes: "{{ servicenow_close_notes_resolved }}"
     when: servicenow_instance is defined
+
