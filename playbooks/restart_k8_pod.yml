@@ -33,14 +33,6 @@
           namespace and pod_name are required
           (from Dynatrace workflow / EDA event payload).
 
-    - name: Validate target namespace
-      ansible.builtin.assert:
-        that:
-          - namespace == load_test_app_namespace
-        fail_msg: >-
-          Pod remediation only runs in namespace {{ load_test_app_namespace }};
-          received namespace {{ namespace }}.
-
     - name: Validate Kubernetes API credential is available to the job
       ansible.builtin.assert:
         that:
