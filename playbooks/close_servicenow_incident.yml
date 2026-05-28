@@ -7,37 +7,36 @@
     servicenow_instance: "{{ lookup('env', 'SERVICENOW_INSTANCE') }}"
     servicenow_username: "{{ lookup('env', 'SERVICENOW_USERNAME') }}"
     servicenow_password: "{{ lookup('env', 'SERVICENOW_PASSWORD') }}"
-    servicenow_close_code: "Solved (Permanently)"
   
   tasks:
-  - name: Build ServiceNow close notes
-    ansible.builtin.set_fact:
-      servicenow_close_notes_resolved: >-
-        {{
-          servicenow_close_notes
-          if servicenow_close_notes is defined and servicenow_close_notes | length > 0
-          else (
-            'Auto-remediated by Event-Driven Ansible. '
-            ~ 'Restarted pod ' ~ pod_name ~ ' in namespace ' ~ namespace ~ '.'
-            ~ (
-              ' Dynatrace problem: ' ~ problem_id ~ '.'
-              if problem_id is defined and problem_id | length > 0
-              else ''
+    - name: Build ServiceNow close notes
+      ansible.builtin.set_fact:
+        servicenow_close_notes_resolved: >-
+          {{
+            servicenow_close_notes
+            if servicenow_close_notes is defined and servicenow_close_notes | length > 0
+            else (
+              'Auto-remediated by Event-Driven Ansible. '
+              ~ 'Restarted pod ' ~ pod_name ~ ' in namespace ' ~ namespace ~ '.'
+              ~ (
+                ' Dynatrace problem: ' ~ dynatrace_problem_id ~ '.'
+                if dynatrace_problem_id is defined and dynatrace_problem_id | length > 0
+                else ''
+              )
             )
-          )
-        }}
+          }}
 
-  - name: Close ServiceNow incident (instance variable)
-    servicenow.itsm.incident:
-      instance:
-        host: "{{ servicenow_instance }}"
-        username: "{{ servicenow_username }}"
-        password: "{{ servicenow_password }}"
-      state: closed
-      number: "{{ sn_incident_number }}"
-      close_code: "{{ servicenow_close_code }}"
-      close_notes: "{{ servicenow_close_notes_resolved }}"
-      other:
-        work_notes: "{{ servicenow_close_notes_resolved }}"
-    when: servicenow_instance is defined
+    - name: Close ServiceNow incident
+      servicenow.itsm.incident:
+        instance:
+          host: "{{ servicenow_instance }}"
+          username: "{{ servicenow_username }}"
+          password: "{{ servicenow_password }}"
+        state: closed
+        number: "{{ sn_incident_number }}"
+        close_code: 'Solved (Permanently)'
+        close_notes: "{{ servicenow_close_notes_resolved }}"
+        other:
+          work_notes: "{{ servicenow_close_notes_resolved }}"
+      when: servicenow_instance is defined
 

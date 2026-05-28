@@ -6,11 +6,6 @@
 #   export EVENT_STREAM_TOKEN="<token-from-aap-credential>"
 #   ./samples/curl_post_event.sh
 #
-# Optional overrides:
-#   EVENT_PAYLOAD_FILE=samples/dynatrace_eda_event.json
-#   POD_NAME=demo-app-7d4f8b9c6d-abc12
-#   INCIDENT_NUMBER=INC0000123
-
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
