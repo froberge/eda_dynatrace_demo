@@ -81,107 +81,37 @@ chmod +x samples/curl_post_event.sh
 ```
 
 Check **Rule audit** / activation logs for a matched rule and a **Workflow Job** in Automation Controller.
+ 
 
-## 8. Dynatrace connection
+### Path: Webhook on OpenShift (no Event Stream)
 
-Use the Event Stream POST URL and token in the Dynatrace **Red Hat Event-Driven Ansible** connection with **Event stream** enabled. See [dynatrace-workflow.md](dynatrace-workflow.md).
+Use to avoid `pg_listener` / Postgres on activation jobs. This **does not** use the standard Dynatrace Event Stream POST URL.
 
-## Ensuring the database secret reaches the rulebook (activation pod)
+1. On the rulebook activation, set **Service name** (for example `k8s-cluster-remediation`). EDA creates a ClusterIP Service on port **5000** when the activation is Running.
+2. Create a **Route** to that Service
 
-The rulebook file does **not** carry the Postgres password. With Event Stream mapping, `ansible.eda.event_stream` becomes **`eda.builtin.pg_listener`**, which reads the EDA database using environment variables injected by the **EDA operator** when it creates the `activation-job-*` pod.
-
-| What you configure in AAP UI | What it is for |
-|------------------------------|----------------|
-| **Token Event Stream** credential | HTTP `Authorization` token for Dynatrace/curl POST to the event stream URL |
-| **Automation Controller** credential on the activation (if shown) | Controller API for `run_workflow_template` — not Postgres |
-| **Decision environment** | `ansible.eda`, rulebook runtime — not Postgres |
-
-You **cannot** paste the Postgres secret into `rulebooks/k8s_pod_remediation.yml` or activation **Variables** YAML to fix `pg_listener`.
-
-### What must be true on the cluster
-
-1. **Secret** (often `eda-postgres-configuration` in namespace `aap`) with keys such as `host`, `port`, `database`, `username`, `password`, `sslmode` (see [EDA operator database configuration](https://github.com/ansible/eda-server-operator/blob/main/docs/user-guide/database-configuration.md)).
-
-2. **EDA custom resource** references that secret:
-   ```yaml
-   spec:
-     database:
-       database_secret: eda-postgres-configuration
-   ```
-
-3. **`aap26-eda-activation-worker`** has `EDA_DB_*` env vars (you confirmed this).
-
-4. **Each `activation-job-*` pod** must have the **same** `EDA_DB_*` vars in the **eda** container (not only the worker):
    ```bash
-   POD=$(oc get pods -n aap -l job-name --sort-by=.metadata.creationTimestamp -o name | tail -1 | cut -d/ -f2)
-   CONTAINER=$(oc get pod "$POD" -n aap -o jsonpath='{.spec.containers[0].name}')
-   oc exec -n aap "$POD" -c "$CONTAINER" -- env | grep -E '^EDA_.*DB' | sort
+   oc expose svc k8s-cluster-remediation --port=5000 -n aap
    ```
-   If this is **empty** while the worker has vars, the operator is not passing the secret to job pods — platform fix ([eda-server-operator#313](https://github.com/ansible/eda-server-operator/issues/313)). Open a case with Red Hat / upgrade **eda-server-operator** to a build that includes the fix for your AAP version.
 
-5. **Password matches Postgres** — from the worker only (do not share passwords in chat):
+3. **TLS on the Route is required for `https://` curls.** If `spec.tls` is empty, OpenShift returns **503** (“Application is not available”) on HTTPS while `http://` may still return **200**. Match other AAP routes:
+
    ```bash
-   oc exec -n aap deploy/aap26-eda-activation-worker -- \
-     bash -c 'PGPASSWORD="$EDA_DB_PASSWORD" psql -h "$EDA_DB_HOST" -U "$EDA_DB_USER" -d "$EDA_DB_NAME" -c "select 1"'
+   oc patch route k8s-cluster-remediation -n aap --type=merge -p \
+     '{"spec":{"tls":{"termination":"edge","insecureEdgeTerminationPolicy":"Redirect"}}}'
    ```
-   If this fails, update the secret and the `eda` user password in Postgres together, then restart EDA and Postgres pods.
 
-### After the platform team fixes injection
+4. POST JSON to the Route (not `./samples/curl_post_event.sh`):
 
-1. Restart `aap26-eda-activation-worker` (or let the operator roll it).
-2. **Disable** then **enable** the rulebook activation in AAP.
-3. Confirm activation logs no longer show `password authentication failed`.
-4. Map Event Stream → source `dynatrace_events`; run `./samples/curl_post_event.sh`.
+   ```bash
+   curl -sS -X POST "https://k8s-cluster-remediation-aap.apps.<cluster-domain>/" \
+     -H "Content-Type: application/json" \
+     -d @samples/dynatrace_eda_event.json
+   ```
 
-## Troubleshooting
 
-### Activation fails: `pg_listener` / `password authentication failed for user "eda"`
+Dynatrace’s built-in Red Hat EDA connector expects the **event stream** URL; Path C requires a custom HTTP action to the webhook Route.
 
-With `ansible.eda.event_stream` (or Event Stream mapping on source `dynatrace_events`), the activation pod runs **`eda.builtin.pg_listener`**, which reads events from the **EDA PostgreSQL** database. Your log shows host **`10.130.2.9:5432`** and user **`eda`**.
-
-This is **not** caused by the decision environment image, the rulebook Git content, or the Token Event Stream HTTP token. The activation job cannot log in to Postgres.
-
-| Log line | Meaning |
-|----------|---------|
-| `eda.builtin.pg_listener` | Event Stream path is active (expected when stream is mapped) |
-| `password authentication failed for user "eda"` | Wrong/missing DB password in the **activation-job** pod |
-
-**Diagnose on OpenShift (replace `<eda-ns>` with your EDA namespace, e.g. where `aap26-eda-api` runs):**
-
-```bash
-# 1) Does the activation worker have DB env vars?
-oc exec -n <eda-ns> deploy/aap26-eda-activation-worker -- env | grep -E '^EDA_.*DB' | sort
-
-# 2) Activation job pod (use -c for the eda container if the pod has multiple containers):
-POD=<activation-job-pod>
-CONTAINER=$(oc get pod "$POD" -n <eda-ns> -o jsonpath='{.spec.containers[0].name}')
-oc exec -n <eda-ns> "$POD" -c "$CONTAINER" -- env | grep -E '^EDA_.*DB' | sort
-
-# Optional: verify password works from the worker (same creds EDA should use)
-oc exec -n <eda-ns> deploy/aap26-eda-activation-worker -- \
-  bash -c 'PGPASSWORD="$EDA_DB_PASSWORD" psql -h "$EDA_DB_HOST" -U "$EDA_DB_USER" -d "$EDA_DB_NAME" -c "select 1"'
-
-# 3) Compare secret keys (do not paste passwords into tickets)
-oc get secret eda-postgres-configuration -n <eda-ns> -o jsonpath='{.data}' | python3 -m json.tool
-```
-
-If step 1 shows `EDA_DB_HOST`, `EDA_DB_PASSWORD`, etc. but step 2 shows **nothing**, the activation job is not receiving database credentials. That matches [eda-server-operator issue #313](https://github.com/ansible/eda-server-operator/issues/313) (common with external/managed Postgres). Your platform team must fix the EDA operator/deployment so **activation-job** pods inherit the same DB secret as `eda-server-activation-worker`.
-
-If step 2 shows DB vars but auth still fails, the **password in the secret does not match** the password configured on the Postgres server for user `eda` (rotate secret and Postgres together, then restart EDA pods).
-
-**After the platform fix:** disable and re-enable the rulebook activation; confirm logs no longer show `password authentication failed`, then run `./samples/curl_post_event.sh`.
-
-**Not fixable in this repo:** changing `quay.io/froberge/eda-dynatrace-demo-ee:latest` or editing `rulebooks/k8s_pod_remediation.yml` will not resolve Postgres authentication.
-
-### Other issues
-
-| Symptom | Check |
-|---------|--------|
-| HTTP 401 on event POST | Token Event Stream credential; `Authorization: Bearer` header |
-| Activation up, no rule match | Payload `eventType: K8S_POD_REMEDIATION`, `namespace`, `pod_name`, etc. |
-| Workflow not launched | Controller link on activation; workflow name `remediate_k8s_cluster` exists |
-| Controller job `system:anonymous` | OpenShift/Kubernetes credential on **job template** (see controller workflow doc) |
-| Test mode | Turn off test mode on the event stream |
 
 ## References
 

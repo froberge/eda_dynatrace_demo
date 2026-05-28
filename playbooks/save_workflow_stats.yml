@@ -1,12 +1,14 @@
 ---
 - name: Save the different variable used in the workflow
-  hosts: all
+  hosts: localhost
+  connection: local
+  gather_facts: false
 
   tasks:
     - name: Save the value for the workflow for later use
       ansible.builtin.set_stats:
         data:
-          eventType: "{{ eda_payload.event.payload.eventType }}"
-          namespace: "{{ eda_payload.event.payload.namespace }}"
-          pod_name: "{{ eda_payload.event.payload.pod_name }}"
-          sn_incident_number: "{{ eda_payload.event.payload.sn_incident_number }}"
+          eventType: "{{ eda_payload.payload.eventType }}"
+          namespace: "{{ eda_payload.payload.namespace }}"
+          pod_name: "{{ eda_payload.payload.pod_name }}"
+          sn_incident_number: "{{ eda_payload.payload.incident_number }}"
