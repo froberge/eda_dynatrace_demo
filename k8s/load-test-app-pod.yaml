@@ -1,0 +1,13 @@
+kind: Pod
+apiVersion: v1
+metadata:
+  name: load-test-app
+  namespace: ia-lab
+  labels:
+    app: load-test-app
+spec:
+  securityContext:
+    runAsUser: 0
+  containers:
+  - image: gokev/load-test-app
+    name: load-test-app

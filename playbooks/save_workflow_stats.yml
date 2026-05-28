@@ -12,3 +12,4 @@
           namespace: "{{ eda_payload.payload.namespace }}"
           pod_name: "{{ eda_payload.payload.pod_name }}"
           sn_incident_number: "{{ eda_payload.payload.incident_number }}"
+          dynatrace_problem_id: "{{ eda_payload.payload.problem_id }}"

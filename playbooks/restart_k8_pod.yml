@@ -27,10 +27,8 @@
       - Error
       - ImagePullBackOff
       - ErrImagePull
-    pod_label_selector: "app=demo-app"
-    pod_ready_minimum: 1
+    load_test_app_manifest: "{{ playbook_dir }}/../k8s/load-test-app-pod.yaml"
     pod_restart_wait_timeout: 300
-    pod_restart_wait_delay: 10
 
   tasks:
     - name: Validate required variables
@@ -94,7 +92,7 @@
         pod_remediation_performed: false
       when: not pod_needs_remediation | bool
 
-    - name: Delete unhealthy pod (Deployment will recreate it)
+    - name: Delete unhealthy pod and re-apply manifest
       when: pod_needs_remediation | bool
       block:
         - name: Remove pod
@@ -107,35 +105,25 @@
             wait: true
             wait_timeout: "{{ pod_restart_wait_timeout }}"
 
-        - name: Wait for workload pods to be Ready
-          kubernetes.core.k8s_info:
-            api_version: v1
-            kind: Pod
-            namespace: "{{ namespace }}"
-            label_selector: "{{ pod_label_selector }}"
-          register: workload_pods
-          until: >
-            workload_pods.resources | length > 0
-            and (
-              workload_pods.resources
-              | selectattr('status.conditions', 'defined')
-              | selectattr('status.phase', 'equalto', 'Running')
-              | list
-              | length
-            ) >= (pod_ready_minimum | default(1) | int)
-          retries: "{{ (pod_restart_wait_timeout | int) // (pod_restart_wait_delay | int) }}"
-          delay: "{{ pod_restart_wait_delay }}"
-          when: pod_label_selector is defined and pod_label_selector | length > 0
+        - name: Apply load-test-app pod manifest
+          kubernetes.core.k8s:
+            state: present
+            src: "{{ load_test_app_manifest }}"
+            wait: true
+            wait_condition:
+              type: Ready
+              status: "True"
+            wait_timeout: "{{ pod_restart_wait_timeout }}"
 
         - name: Mark remediation complete
           ansible.builtin.set_fact:
             pod_remediation_performed: true
 
-    - name: Report pod deleted and workload recovering
+    - name: Report pod deleted and manifest reapplied
       ansible.builtin.debug:
         msg: >-
-          Deleted pod {{ pod_name }} in namespace {{ namespace }}.
-          Waiting for replacement pods (selector {{ pod_label_selector }}).
+          Deleted pod {{ pod_name }} in namespace {{ namespace }}
+          and reapplied {{ load_test_app_manifest }}.
       when: pod_remediation_performed | default(false) | bool
 
     - name: Report pod already healthy or not found
