@@ -2,12 +2,13 @@
 - name: Simple rulebook example that prints the payload received
   hosts: localhost
   sources:
-    - name: listen for alerts
+    - name: dynatrace_events
       ansible.eda.webhook:
         host: 0.0.0.0
         port: 5005
   rules:
-    - name: Print any payload received
-      condition: event.payload is defined
+    - name: Remediate failing Kubernetes pod and close ServiceNow incident
+      condition: >
+        dynatrace_eventspayload is defined
       action:
         debug:
