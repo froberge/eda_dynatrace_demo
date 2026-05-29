@@ -9,6 +9,6 @@
   rules:
     - name: Remediate failing Kubernetes pod and close ServiceNow incident
       condition: >
-        dynatrace_eventspayload is defined
+        dynatrace_events.payload is defined
       action:
         debug:
