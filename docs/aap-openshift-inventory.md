@@ -10,7 +10,7 @@ Connect an OpenShift cluster to **Automation Controller** using a dedicated **Se
 ```text
 OpenShift cluster
   └── ServiceAccount aap-inventory (namespace aap)
-        └── ClusterRole aap-inventory-demo (demo: read + pod delete cluster-wide)
+        └── ClusterRole aap-inventory-demo (demo: read + pod create/delete cluster-wide)
               └── token → AAP Credential
                     ├── Inventory → Sourced from a Project (inventory/openshift_k8s_inventory.py) → Sync
                     └── Job template EDA - Remediate K8s Pod (EDA Localhost + same credential)
@@ -133,7 +133,7 @@ Do **not** point the remediation job at `OpenShift Demo` inventory hosts expecti
 
 ## Production hardening
 
-The demo [`ClusterRole`](../k8s/rbac/openshift_aap_sa.yaml) grants **cluster-wide pod delete**. For production:
+The demo [`ClusterRole`](../k8s/rbac/openshift_aap_sa.yaml) grants **cluster-wide pod create and delete**. For production:
 
 - Use one **read-only** ServiceAccount for inventory sync only
 - Use a separate ServiceAccount with `Role` / `RoleBinding` per allowed namespace for remediation
@@ -149,6 +149,7 @@ The demo [`ClusterRole`](../k8s/rbac/openshift_aap_sa.yaml) grants **cluster-wid
 | `No module named 'kubernetes'` | Pull latest repo (script uses stdlib only); re-sync project and inventory source |
 | Sync uses wrong plugin / no hosts | Source is **Sourced from a Project**, file `inventory/openshift_k8s_inventory.py`; not OpenShift Virtualization |
 | Job cannot delete pod | Same credential on **job template** (not only on inventory source) |
+| Job deletes pod but fails on apply | ClusterRole needs **`create`** on pods (see `k8s/rbac/openshift_aap_sa.yaml`); re-apply RBAC with `oc apply -f` |
 | TLS errors | CA file matches cluster; API URL has no trailing slash; or lab-only disable SSL verify |
 | Empty inventory after sync | SA can `list pods` cluster-wide; credential attached to inventory source; re-sync after project update |
 
