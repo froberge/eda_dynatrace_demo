@@ -9,6 +9,6 @@
   rules:
     - name: Remediate failing Kubernetes pod and close ServiceNow incident
       condition: >
-        payload.eventType == "K8S_POD_REMEDIATION"
+        eventpayload.eventType == "K8S_POD_REMEDIATION"
       action:
         debug:
