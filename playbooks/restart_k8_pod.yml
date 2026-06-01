@@ -24,13 +24,39 @@
     pod_restart_wait_timeout: 300
 
   tasks:
+    - name: Normalize namespace and pod names for remediation
+      ansible.builtin.set_fact:
+        namespace: "{{ namespace_resolved }}"
+        pod_names: "{{ pod_names_resolved }}"
+      vars:
+        _pod_raw: "{{ pod_name | default('') }}"
+        _ns_raw: "{{ namespace | default('') }}"
+        pod_names_resolved: >-
+          {% if _pod_raw is sequence and _pod_raw is not mapping and _pod_raw is not string %}
+          {{ _pod_raw | list }}
+          {% elif (_pod_raw | string) is match('^\[.*\]$') %}
+          {{ (_pod_raw | string) | regex_replace('^\[', '') | regex_replace('\]$', '') | trim | split(',') | map('trim') | map('regex_replace', "^[\\\"']|[\\\"']$", '') | list }}
+          {% elif (_pod_raw | string) | length > 0 %}
+          {{ [_pod_raw | string] }}
+          {% else %}
+          {{ [] }}
+          {% endif %}
+        namespace_resolved: >-
+          {% if _ns_raw is sequence and _ns_raw is not mapping and _ns_raw is not string %}
+          {{ _ns_raw | first | default('') }}
+          {% elif (_ns_raw | string) is match('^\[.*\]$') %}
+          {{ (_ns_raw | string) | regex_replace('^\[', '') | regex_replace('\]$', '') | trim | split(',') | map('trim') | map('regex_replace', "^[\\\"']|[\\\"']$", '') | first | default('') }}
+          {% else %}
+          {{ _ns_raw | string }}
+          {% endif %}
+
     - name: Validate required variables
       ansible.builtin.assert:
         that:
           - namespace | length > 0
-          - pod_name | length > 0
+          - pod_names | length > 0
         fail_msg: >-
-          namespace and pod_name are required
+          namespace and at least one pod name are required
           (from Dynatrace workflow / EDA event payload).
 
     - name: Validate Kubernetes API credential is available to the job
@@ -45,60 +71,10 @@
           For workflow launches, enable Prompt on launch for credentials if your AAP
           version requires selecting the credential at launch.
 
-    - name: Read pod state
-      kubernetes.core.k8s_info:
-        api_version: v1
-        kind: Pod
-        name: "{{ pod_name }}"
-        namespace: "{{ namespace }}"
-      register: pod_info
-
-    - name: Record whether pod exists
-      ansible.builtin.set_fact:
-        pod_exists: "{{ pod_info.resources | length > 0 }}"
-
-    - name: Pod not found — skip remediation
-      ansible.builtin.set_fact:
-        pod_remediation_performed: false
-      when: not pod_exists | bool
-
-    - name: Delete existing pod and re-apply manifest
-      when: pod_exists | bool
-      block:
-        - name: Remove pod
-          kubernetes.core.k8s:
-            api_version: v1
-            kind: Pod
-            name: "{{ pod_name }}"
-            namespace: "{{ namespace }}"
-            state: absent
-            wait: true
-            wait_timeout: "{{ pod_restart_wait_timeout }}"
-
-        - name: Apply load-test-app pod manifest
-          kubernetes.core.k8s:
-            state: present
-            src: "{{ load_test_app_manifest }}"
-            wait: true
-            wait_condition:
-              type: Ready
-              status: "True"
-            wait_timeout: "{{ pod_restart_wait_timeout }}"
-
-        - name: Mark remediation complete
-          ansible.builtin.set_fact:
-            pod_remediation_performed: true
-
-    - name: Report pod deleted and manifest reapplied
-      ansible.builtin.debug:
-        msg: >-
-          Deleted pod {{ pod_name }} in namespace {{ namespace }}
-          and reapplied {{ load_test_app_manifest }}.
-      when: pod_remediation_performed | default(false) | bool
-
-    - name: Report pod not found
-      ansible.builtin.debug:
-        msg: >-
-          Pod {{ pod_name }} was not found in namespace {{ namespace }};
-          no delete or apply performed.
-      when: not (pod_remediation_performed | default(false) | bool)
+    - name: Remediate each pod in the list
+      ansible.builtin.include_tasks:
+        file: tasks/restart_one_k8_pod.yml
+      loop: "{{ pod_names }}"
+      loop_control:
+        loop_var: pod_name
+        label: "{{ pod_name }}"

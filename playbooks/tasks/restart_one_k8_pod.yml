@@ -1,0 +1,58 @@
+---
+- name: Read pod state for {{ pod_name }}
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Pod
+    name: "{{ pod_name }}"
+    namespace: "{{ namespace }}"
+  register: pod_info
+
+- name: Record whether pod exists
+  ansible.builtin.set_fact:
+    pod_exists: "{{ pod_info.resources | length > 0 }}"
+
+- name: Pod not found — skip remediation
+  ansible.builtin.set_fact:
+    pod_remediation_performed: false
+  when: not pod_exists | bool
+
+- name: Delete existing pod and re-apply manifest
+  when: pod_exists | bool
+  block:
+    - name: Remove pod
+      kubernetes.core.k8s:
+        api_version: v1
+        kind: Pod
+        name: "{{ pod_name }}"
+        namespace: "{{ namespace }}"
+        state: absent
+        wait: true
+        wait_timeout: "{{ pod_restart_wait_timeout }}"
+
+    - name: Apply load-test-app pod manifest
+      kubernetes.core.k8s:
+        state: present
+        src: "{{ load_test_app_manifest }}"
+        wait: true
+        wait_condition:
+          type: Ready
+          status: "True"
+        wait_timeout: "{{ pod_restart_wait_timeout }}"
+
+    - name: Mark remediation complete
+      ansible.builtin.set_fact:
+        pod_remediation_performed: true
+
+- name: Report pod deleted and manifest reapplied
+  ansible.builtin.debug:
+    msg: >-
+      Deleted pod {{ pod_name }} in namespace {{ namespace }}
+      and reapplied {{ load_test_app_manifest }}.
+  when: pod_remediation_performed | default(false) | bool
+
+- name: Report pod not found
+  ansible.builtin.debug:
+    msg: >-
+      Pod {{ pod_name }} was not found in namespace {{ namespace }};
+      no delete or apply performed.
+  when: not (pod_remediation_performed | default(false) | bool)
