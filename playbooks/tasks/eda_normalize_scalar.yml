@@ -1,0 +1,21 @@
+---
+# Set fact {{ eda_fact }} from {{ eda_raw }} (first element of a list or bracketed string).
+- name: Set {{ eda_fact }} from YAML/JSON list
+  ansible.builtin.set_fact:
+    "{{ eda_fact }}": "{{ eda_raw | first }}"
+  when: eda_raw is sequence and eda_raw is not string
+
+- name: Set {{ eda_fact }} from bracketed string
+  ansible.builtin.set_fact:
+    "{{ eda_fact }}": "{{ (eda_raw | string)[1:-1] | split(',') | map('trim') | map('replace', \"'\", '') | map('replace', '\"', '') | first | default('') }}"
+  when:
+    - eda_raw is string
+    - (eda_raw | string | length) >= 2
+    - (eda_raw | string)[0] == '['
+
+- name: Set {{ eda_fact }} from plain string
+  ansible.builtin.set_fact:
+    "{{ eda_fact }}": "{{ eda_raw | string }}"
+  when:
+    - eda_raw is string
+    - (eda_raw | string | length) == 0 or (eda_raw | string)[0] != '['

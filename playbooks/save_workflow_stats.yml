@@ -5,30 +5,31 @@
   gather_facts: false
 
   tasks:
-    - name: Normalize list-like namespace and pod_name from event payload
+    - name: Load event data from EDA payload
       ansible.builtin.set_fact:
         _event_data: "{{ eda_payload.payload.eventData }}"
-        "{{ item.key }}": "{{ scalar | default('') }}"
-      loop:
-        - key: namespace
-          raw: "{{ eda_payload.payload.eventData.namespace | default('') }}"
-        - key: pod_name
-          raw: "{{ eda_payload.payload.eventData.pod_name | default('') }}"
+        _namespace_raw: "{{ eda_payload.payload.eventData.namespace | default('') }}"
+        _pod_name_raw: "{{ eda_payload.payload.eventData.pod_name | default('') }}"
+
+    - name: Normalize namespace
+      ansible.builtin.include_tasks:
+        file: tasks/eda_normalize_scalar.yml
       vars:
-        scalar: >-
-          {% if item.raw is sequence and item.raw is not mapping and item.raw is not string %}
-          {{ item.raw | first }}
-          {% elif (item.raw | string) is match('^\[.*\]$') %}
-          {{ (item.raw | string) | regex_replace('^\[', '') | regex_replace('\]$', '') | trim | regex_replace("^[\\\"']|[\\\"']$", '') | trim }}
-          {% else %}
-          {{ item.raw }}
-          {% endif %}
+        eda_raw: "{{ _namespace_raw }}"
+        eda_fact: namespace
+
+    - name: Normalize pod names
+      ansible.builtin.include_tasks:
+        file: tasks/eda_normalize_list.yml
+      vars:
+        eda_raw: "{{ _pod_name_raw }}"
+        eda_fact: pod_names
 
     - name: Save the value for the workflow for later use
       ansible.builtin.set_stats:
         data:
           eventType: "{{ _event_data['eventType'] }}"
-          namespace: "{{ namespace }}"
-          pod_name: "{{ pod_name }}"
+          namespace: "{{ namespace | default('') }}"
+          pod_name: "{{ pod_names | default([]) }}"
           sn_incident_number: "{{ _event_data['incident_number'] }}"
           dynatrace_problem_id: "{{ _event_data['problem_id'] | default('') }}"
