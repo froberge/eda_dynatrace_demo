@@ -1,8 +1,9 @@
 {
-  "eventType": "K8S_POD_REMEDIATION",
-  "namespace": "ia-lab",
-  "pod_name": "load-test-app",
-  "incident_number": "INC0010253",
-  "problem_id": "P-1234567890123456"
+  "eventData": {
+    "eventType": "K8S_POD_REMEDIATION",
+    "namespace": "['ia-lab']",
+    "pod_name": "['ia-lab']",
+    "incident_number": "INC0010313",
+    "problem_id": ""
+  }
 }
-

@@ -8,8 +8,8 @@
     - name: Save the value for the workflow for later use
       ansible.builtin.set_stats:
         data:
-          eventType: "{{ eda_payload.payload.eventType }}"
-          namespace: "{{ eda_payload.payload.namespace }}"
-          pod_name: "{{ eda_payload.payload.pod_name }}"
-          sn_incident_number: "{{ eda_payload.payload.incident_number }}"
-          dynatrace_problem_id: "{{ eda_payload.payload.problem_id }}"
+          eventType: "{{ eda_payload.payload.eventData.eventType }}"
+          namespace: "{{ eda_payload.payload.eventData.namespace }}"
+          pod_name: "{{ eda_payload.payload.eventData.pod_name }}"
+          sn_incident_number: "{{ eda_payload.payload.eventData.incident_number }}"
+          dynatrace_problem_id: "{{ eda_payload.payload.eventDataproblem_id }}"
