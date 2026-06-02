@@ -28,8 +28,8 @@
       ansible.builtin.include_tasks:
         file: tasks/eda_normalize_scalar.yml
       vars:
-        eda_raw: "{{ namespace | default('') }}"
-        eda_fact: namespace
+        eda_raw: "{{ vars.get('namespace', '') }}"
+        eda_fact: k8s_namespace
 
     - name: Normalize pod names for remediation
       ansible.builtin.include_tasks:
@@ -41,10 +41,10 @@
     - name: Validate required variables
       ansible.builtin.assert:
         that:
-          - namespace | length > 0
+          - k8s_namespace | length > 0
           - pod_names | length > 0
         fail_msg: >-
-          namespace and at least one pod name are required
+          k8s_namespace and at least one pod name are required
           (from Dynatrace workflow / EDA event payload).
 
     - name: Validate Kubernetes API credential is available to the job
