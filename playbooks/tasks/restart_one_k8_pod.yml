@@ -1,9 +1,9 @@
 ---
-- name: Read pod state for {{ pod_name }}
+- name: Read pod state for {{ remediation_pod_name }}
   kubernetes.core.k8s_info:
     api_version: v1
     kind: Pod
-    name: "{{ pod_name }}"
+    name: "{{ remediation_pod_name }}"
     namespace: "{{ namespace }}"
   register: pod_info
 
@@ -23,7 +23,7 @@
       kubernetes.core.k8s:
         api_version: v1
         kind: Pod
-        name: "{{ pod_name }}"
+        name: "{{ remediation_pod_name }}"
         namespace: "{{ namespace }}"
         state: absent
         wait: true
@@ -46,13 +46,13 @@
 - name: Report pod deleted and manifest reapplied
   ansible.builtin.debug:
     msg: >-
-      Deleted pod {{ pod_name }} in namespace {{ namespace }}
+      Deleted pod {{ remediation_pod_name }} in namespace {{ namespace }}
       and reapplied {{ load_test_app_manifest }}.
   when: pod_remediation_performed | default(false) | bool
 
 - name: Report pod not found
   ansible.builtin.debug:
     msg: >-
-      Pod {{ pod_name }} was not found in namespace {{ namespace }};
+      Pod {{ remediation_pod_name }} was not found in namespace {{ namespace }};
       no delete or apply performed.
   when: not (pod_remediation_performed | default(false) | bool)

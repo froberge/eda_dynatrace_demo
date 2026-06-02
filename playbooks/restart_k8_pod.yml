@@ -64,5 +64,7 @@
         file: tasks/restart_one_k8_pod.yml
       loop: "{{ pod_names }}"
       loop_control:
-        loop_var: pod_name
-        label: "{{ pod_name }}"
+        # Do not use loop_var pod_name — workflow extra_vars often set pod_name to a list
+        # from set_stats, and extra vars outrank loop vars in Ansible.
+        loop_var: remediation_pod_name
+        label: "{{ remediation_pod_name }}"
