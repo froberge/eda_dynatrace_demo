@@ -18,7 +18,7 @@
           {% if servicenow_close_notes is defined and servicenow_close_notes | length > 0 %}
           {{ servicenow_close_notes }}
           {% else %}
-          Auto-remediated by Event-Driven Ansible. Restarted pod {{ pod_name }} in namespace {{ namespace }}.
+          Auto-remediated by Event-Driven Ansible. Restarted pod {{ pod_name | join(', ') if pod_name is iterable and pod_name is not string else pod_name }} in namespace {{ namespace }}.
           {% if dynatrace_problem_id is defined and dynatrace_problem_id | length > 0 %}
           Dynatrace problem: {{ dynatrace_problem_id }}.
           {% endif %}
