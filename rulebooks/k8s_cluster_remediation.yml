@@ -12,14 +12,15 @@
     - name: Remediate failing Kubernetes pod and close ServiceNow incident
       condition: >
         event.payload is defined
-        and event.payload.eventType is defined
-        and event.payload.eventType == "K8S_POD_REMEDIATION"
-        and event.payload.namespace is defined
-        and event.payload.pod_name is defined
-        and event.payload.incident_number is defined
+        and event.payload.eventData is defined
+        and event.payload.eventData.eventType is defined
+        and event.payload.eventData.eventType == "K8S_POD_REMEDIATION"
+        and event.payload.eventData.namespace is defined
+        and event.payload.eventData.pod_name is defined
+        and event.payload.eventData.incident_number is defined
       action:
         run_workflow_template:
-          name: remediate_k8s_pod
+          name: remediate_k8s_cluster
           organization: Default
           job_args:
             extra_vars:

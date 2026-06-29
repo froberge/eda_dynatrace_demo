@@ -1,0 +1,36 @@
+---
+- name: Document a ServiceNow Incident
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    # Possible values: Solution provided, Resolved by change, Workaround provided
+    # https://galaxy.ansible.com/ui/repo/published/servicenow/itsm/content/module/incident/
+    servicenow_instance: "https://{{ lookup('env', 'SERVICENOW_INSTANCE') }}"
+    servicenow_username: "{{ lookup('env', 'SERVICENOW_USERNAME') }}"
+    servicenow_password: "{{ lookup('env', 'SERVICENOW_PASSWORD') }}"
+  tasks:
+    - name: Build ServiceNow notes
+      ansible.builtin.set_fact:
+        servicenow_notes_resolved: >-
+          {% if servicenow_notes is defined and servicenow_notes | length > 0 %}
+          {{ servicenow_notes }}
+          {% else %}
+          Auto-remediated by Event-Driven Ansible. Restarted pod {{ pod_name }} in namespace {{ namespace }}.
+          {% if dynatrace_problem_id is defined and dynatrace_problem_id | length > 0 %}
+          Dynatrace problem: {{ dynatrace_problem_id }}.
+          {% endif %}
+          {% endif %}
+
+    - name: Document ServiceNow incident
+      servicenow.itsm.incident:
+        instance:
+          host: "{{ servicenow_instance }}"
+          username: "{{ servicenow_username }}"
+          password: "{{ servicenow_password }}"
+        state: in_progress
+        number: "{{ sn_incident_number }}"
+        notes: "{{ servicenow_notes_resolved }}"
+        other:
+          work_notes: "{{ servicenow_notes_resolved }}"

@@ -25,3 +25,4 @@ context/
 *.swp
 
 .cursor/
+*.crt

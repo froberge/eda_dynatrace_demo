@@ -1,0 +1,22 @@
+apiVersion: project.openshift.io/v1
+kind: Project
+metadata:
+  annotations:
+    openshift.io/description: project use for the dynatrace demo
+    openshift.io/display-name: ia-lab
+    openshift.io/requester: kube:admin
+    openshift.io/sa.scc.mcs: s0:c27,c24
+    openshift.io/sa.scc.supplemental-groups: 1000750000/10000
+    openshift.io/sa.scc.uid-range: 1000750000/10000
+    security.openshift.io/MinimallySufficientPodSecurityStandard: restricted
+  labels:
+    dynakube.internal.dynatrace.com/instance: openshift-july-agents
+    kubernetes.io/metadata.name: ia-lab
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/audit-version: latest
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/warn-version: latest
+  name: ia-lab
+spec:
+  finalizers:
+  - kubernetes
