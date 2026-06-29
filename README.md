@@ -77,48 +77,8 @@ Dynatrace workflow **Event data** must be JSON like [`samples/dynatrace_eda_even
 
 The ServiceNow and Dynatrace playbooks read credentials from **environment variables** injected by Automation Controller job templates. Create one credential per integration, then attach each credential to the matching job template(s).
 
-### ServiceNow credential
+Here how to create the credential [`docs/create-credentials.md](docs/create-credentials.md)
 
-Used by [`playbooks/document_servicenow_incident.yml`](playbooks/document_servicenow_incident.yml) and [`playbooks/close_servicenow_incident.yml`](playbooks/close_servicenow_incident.yml).
-
-1. In **Automation Controller**, go to **Credentials** → **Create credential**.
-2. Choose **Custom** (or your platform’s ServiceNow credential type if it injects the same env vars).
-3. Configure **Input configuration** so these fields are exposed as environment variables on the job pod:
-
-| Input field (label) | Environment variable | Example value |
-|---------------------|------------------------|---------------|
-| Instance | `SERVICENOW_INSTANCE` | `ven05434.service-now.com` (hostname only, no `https://`) |
-| Username | `SERVICENOW_USERNAME` | Integration user with incident read/update |
-| Password | `SERVICENOW_PASSWORD` | User password or secret |
-
-4. Save the credential (for example `froberge-snow-credential`).
-5. Attach it to job templates:
-   - `document-service-now-ticket`
-   - `close-servicenow-incident` (if used in the workflow)
-
-The user needs permission to update incidents (set state, add work notes, close).
-
-### Dynatrace credential
-
-Used by [`playbooks/close_dynatrace_problem.yml`](playbooks/close_dynatrace_problem.yml).
-
-1. In Dynatrace, create an **API token** with scope **`problems.write`** (and `problems.read` if you want to verify problems before close).
-2. In **Automation Controller**, go to **Credentials** → **Create credential** → **Custom**.
-3. Configure **Input configuration**:
-
-| Input field (label) | Environment variable | Example value |
-|---------------------|------------------------|---------------|
-| Environment URL | `DYNATRACE_ENV_URL` | `https://abc123.live.dynatrace.com` (tenant base URL, no trailing path) |
-| API token | `DYNATRACE_API_TOKEN` | Dynatrace API token |
-
-4. Save the credential (for example `dynatrace-problems-credential`).
-5. Attach it to job template **`close-dynatrace-problem`**.
-
-For SaaS, the environment URL is typically `https://<environment-id>.live.dynatrace.com`. On Managed deployments, use the ActiveGate or environment URL documented for your tenant.
-
-If the workflow runs with an empty `problem_id`, the close playbook skips the API call and does not require the token for that run.
-
-More workflow wiring (job templates, prompt on launch): [docs/aap-controller-workflow.md](docs/aap-controller-workflow.md).
 
 ## Quick start (demo script)
 
