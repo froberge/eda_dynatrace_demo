@@ -77,7 +77,7 @@ Dynatrace workflow **Event data** must be JSON like [`samples/dynatrace_eda_even
 
 The ServiceNow and Dynatrace playbooks read credentials from **environment variables** injected by Automation Controller job templates. Create one credential per integration, then attach each credential to the matching job template(s).
 
-Here how to create the credential [`docs/create-credentials.md](docs/create-credentials.md)
+Here how to create the credential [`docs/create-credentials.md`](docs/create-credentials.md)
 
 
 ## Quick start (demo script)
