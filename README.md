@@ -1,6 +1,6 @@
 # Event-Driven Ansible: Dynatrace → Pod Restart → ServiceNow
 
-Demo repository for **Event-Driven Ansible (EDA)** on Ansible Automation Platform 2.6+: Dynatrace detects an unhealthy Kubernetes pod, sends an event through an **Event Stream**, EDA launches an **Automation Controller workflow** that deletes the pod so the workload controller recreates it, then **closes the correlated ServiceNow incident**.
+Demo repository for **Event-Driven Ansible (EDA)** on Ansible Automation Platform 2.6+: Dynatrace detects an unhealthy Kubernetes pod, sends an event through an **Event Stream**, EDA launches an **Automation Controller workflow** that deletes the pod so the workload controller recreates it, updates **ServiceNow**, and **closes the Dynatrace problem**.
 
 ## Architecture
 
@@ -14,15 +14,17 @@ sequenceDiagram
     participant WJT as ControllerWorkflow
     participant JT as RemediationJob
     participant SN as ServiceNow
+    participant DTclose as DynatraceClose
 
     K8s->>DT: Pod error detected
     DT->>WF: Problem opened
     WF->>ES: POST JSON event
     ES->>EDA: Rulebook activation
     EDA->>WJT: run_workflow_template
-    WJT->>JT: remediate_k8s_pod.yml
+    WJT->>JT: restart_k8_pod.yml
     JT->>K8s: Delete pod if unhealthy
-    JT->>SN: Close incident
+    JT->>SN: Document incident
+    JT->>DTclose: Close problem
 ```
 
 ## Prerequisites
@@ -30,14 +32,19 @@ sequenceDiagram
 - Ansible Automation Platform **2.6+** with EDA and Event Streams
 - Dynatrace with **Workflows** and [Red Hat Ansible for Workflows](https://docs.dynatrace.com/docs/analyze-explore-automate/workflows/default-workflow-actions/actions/red-hat/redhat-even-driven-ansible)
 - Kubernetes cluster and credentials for pod delete
-- ServiceNow instance and credentials for incident close
+- ServiceNow instance and credentials for incident updates
+- Dynatrace API token with `problems.write` for closing problems after remediation
 
 ## Repository layout
 
 | Path | Description |
 |------|-------------|
-| [`rulebooks/k8s_pod_remediation.yml`](rulebooks/k8s_pod_remediation.yml) | EDA rulebook → `run_workflow_template` on Controller |
-| [`playbooks/remediate_k8s_pod.yml`](playbooks/remediate_k8s_pod.yml) | Delete unhealthy pod and wait for workload (Controller job template playbook) |
+| [`rulebooks/k8s_cluster_remediation.yml`](rulebooks/k8s_cluster_remediation.yml) | EDA rulebook → `run_workflow_template` on Controller |
+| [`playbooks/save_workflow_stats.yml`](playbooks/save_workflow_stats.yml) | Normalize EDA payload and publish workflow facts |
+| [`playbooks/restart_k8_pod.yml`](playbooks/restart_k8_pod.yml) | Delete unhealthy pod and wait for workload |
+| [`playbooks/document_servicenow_incident.yml`](playbooks/document_servicenow_incident.yml) | Set ServiceNow incident to In Progress with work notes |
+| [`playbooks/close_dynatrace_problem.yml`](playbooks/close_dynatrace_problem.yml) | Close Dynatrace problem via Problems API v2 after remediation |
+| [`playbooks/close_servicenow_incident.yml`](playbooks/close_servicenow_incident.yml) | Close ServiceNow incident (optional workflow step) |
 | [`docs/aap-controller-workflow.md`](docs/aap-controller-workflow.md) | Job template + workflow job template setup |
 | [`vars/aap_controller.yml.example`](vars/aap_controller.yml.example) | Activation variables for workflow template name |
 | [`k8s/`](k8s/) | Sample `demo-app` Deployment for the demo |
@@ -62,18 +69,65 @@ Dynatrace workflow **Event data** must be JSON like [`samples/dynatrace_eda_even
 | `namespace` | yes | Kubernetes namespace |
 | `pod_name` | yes | Pod to delete if unhealthy |
 | `incident_number` | yes | ServiceNow `INC…` to close |
-| `problem_id` | no | Dynatrace problem ID for audit notes |
+| `problem_id` | recommended | Dynatrace **API problemId** for the close step (e.g. from `event.id` in the workflow). Empty value skips close. |
 | `severity` | no | Optional filter / logging |
 | `pod_label_selector` | no | Wait for ready pods (default `app=demo-app`) |
+
+## Create credentials in AAP
+
+The ServiceNow and Dynatrace playbooks read credentials from **environment variables** injected by Automation Controller job templates. Create one credential per integration, then attach each credential to the matching job template(s).
+
+### ServiceNow credential
+
+Used by [`playbooks/document_servicenow_incident.yml`](playbooks/document_servicenow_incident.yml) and [`playbooks/close_servicenow_incident.yml`](playbooks/close_servicenow_incident.yml).
+
+1. In **Automation Controller**, go to **Credentials** → **Create credential**.
+2. Choose **Custom** (or your platform’s ServiceNow credential type if it injects the same env vars).
+3. Configure **Input configuration** so these fields are exposed as environment variables on the job pod:
+
+| Input field (label) | Environment variable | Example value |
+|---------------------|------------------------|---------------|
+| Instance | `SERVICENOW_INSTANCE` | `ven05434.service-now.com` (hostname only, no `https://`) |
+| Username | `SERVICENOW_USERNAME` | Integration user with incident read/update |
+| Password | `SERVICENOW_PASSWORD` | User password or secret |
+
+4. Save the credential (for example `froberge-snow-credential`).
+5. Attach it to job templates:
+   - `document-service-now-ticket`
+   - `close-servicenow-incident` (if used in the workflow)
+
+The user needs permission to update incidents (set state, add work notes, close).
+
+### Dynatrace credential
+
+Used by [`playbooks/close_dynatrace_problem.yml`](playbooks/close_dynatrace_problem.yml).
+
+1. In Dynatrace, create an **API token** with scope **`problems.write`** (and `problems.read` if you want to verify problems before close).
+2. In **Automation Controller**, go to **Credentials** → **Create credential** → **Custom**.
+3. Configure **Input configuration**:
+
+| Input field (label) | Environment variable | Example value |
+|---------------------|------------------------|---------------|
+| Environment URL | `DYNATRACE_ENV_URL` | `https://abc123.live.dynatrace.com` (tenant base URL, no trailing path) |
+| API token | `DYNATRACE_API_TOKEN` | Dynatrace API token |
+
+4. Save the credential (for example `dynatrace-problems-credential`).
+5. Attach it to job template **`close-dynatrace-problem`**.
+
+For SaaS, the environment URL is typically `https://<environment-id>.live.dynatrace.com`. On Managed deployments, use the ActiveGate or environment URL documented for your tenant.
+
+If the workflow runs with an empty `problem_id`, the close playbook skips the API call and does not require the token for that run.
+
+More workflow wiring (job templates, prompt on launch): [docs/aap-controller-workflow.md](docs/aap-controller-workflow.md).
 
 ## Quick start (demo script)
 
 1. Have the demo app deploy
 2. **Configure AAP** — [docs/aap-setup.md](docs/aap-setup.md) (event stream, EDA activation), [docs/aap-openshift-inventory.md](docs/aap-openshift-inventory.md) (OpenShift SA + inventory), and [docs/aap-controller-workflow.md](docs/aap-controller-workflow.md) (Controller workflow + job template)
-3. Dynatrace should be configured
-4. Service now need to be configured
+3. Dynatrace workflow and Event Stream configured ([docs/aap-setup.md](docs/aap-setup.md))
+4. **ServiceNow and Dynatrace credentials** created in AAP (see [Create credentials in AAP](#create-credentials-in-aap))
 5. **Break a pod** and confirm Dynatrace fires the workflow
-6. **Verify:** EDA rule audit, Controller workflow job success, new healthy pod, incident closed
+6. **Verify:** EDA rule audit, Controller workflow job success, new healthy pod, ServiceNow updated, Dynatrace problem closed
 
 ### Test without Dynatrace
 
@@ -94,14 +148,15 @@ ansible-galaxy collection install -r collections/requirements.yml
 
 - `ansible.eda` — rulebook / EDA
 - `kubernetes.core` — pod operations
-- `servicenow.itsm` — incident closure
+- `servicenow.itsm` — incident updates
+- `ansible.builtin.uri` — Dynatrace Problems API (no extra collection)
 
 ## References
 
 - [Dynatrace → Red Hat EDA (Event Streams)](https://docs.dynatrace.com/docs/analyze-explore-automate/workflows/default-workflow-actions/actions/red-hat/redhat-even-driven-ansible)
 - [AAP simplified event routing](https://docs.redhat.com/en/documentation/red_hat_ansible_automation_platform/2.5/html/using_automation_decisions/simplified-event-routing)
 - [kubernetes.core.k8s](https://docs.ansible.com/ansible/latest/collections/kubernetes/core/k8s_module.html)
-- [servicenow.itsm.incident](https://github.com/ansible-collections/servicenow.itsm/blob/main/docs/servicenow.itsm.incident_module.rst)
+- [Dynatrace Problems API v2 — close problem](https://docs.dynatrace.com/docs/dynatrace-api/environment-api/problems-v2/problems/post-close)
 
 ## License
 

@@ -1,0 +1,61 @@
+---
+- name: Close a Dynatrace problem after remediation
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    dynatrace_env_url: "{{ lookup('env', 'DYNATRACE_ENV_URL') | default('', true) | regex_replace('/$', '') }}"
+    dynatrace_api_token: "{{ lookup('env', 'DYNATRACE_API_TOKEN') | default('', true) }}"
+    _dynatrace_problem_id: "{{ dynatrace_problem_id | default('') }}"
+
+  tasks:
+    - name: Skip when no Dynatrace problem ID was provided
+      ansible.builtin.debug:
+        msg: >-
+          No dynatrace_problem_id in workflow extra vars; skipping Dynatrace problem close.
+          Set problem_id in the Dynatrace workflow Event data (API problemId, e.g. from event.id).
+      when: _dynatrace_problem_id | length == 0
+
+    - name: Build Dynatrace closing message
+      ansible.builtin.set_fact:
+        dynatrace_close_message_resolved: >-
+          {% if dynatrace_close_message is defined and dynatrace_close_message | length > 0 %}
+          {{ dynatrace_close_message }}
+          {% else %}
+          Auto-remediated by Event-Driven Ansible. Restarted pod {{ pod_name | join(', ') if pod_name is iterable and pod_name is not string else pod_name }} in namespace {{ namespace }}.
+          {% endif %}
+      when: _dynatrace_problem_id | length > 0
+
+    - name: Validate Dynatrace API credential is available to the job
+      ansible.builtin.assert:
+        that:
+          - dynatrace_env_url | length > 0
+          - dynatrace_api_token | length > 0
+        fail_msg: >-
+          Dynatrace API credentials are missing. Attach a Custom credential to this job template
+          that injects DYNATRACE_ENV_URL and DYNATRACE_API_TOKEN (token needs problems.write scope).
+      when: _dynatrace_problem_id | length > 0
+
+    - name: Close Dynatrace problem
+      ansible.builtin.uri:
+        url: "{{ dynatrace_env_url }}/api/v2/problems/{{ _dynatrace_problem_id }}/close"
+        method: POST
+        headers:
+          Authorization: "Api-Token {{ dynatrace_api_token }}"
+          Content-Type: application/json
+          Accept: application/json
+        body_format: json
+        body:
+          message: "{{ dynatrace_close_message_resolved }}"
+        status_code: [200, 201]
+        return_content: true
+      register: dynatrace_close_result
+      when: _dynatrace_problem_id | length > 0
+
+    - name: Show Dynatrace close response
+      ansible.builtin.debug:
+        var: dynatrace_close_result.json
+      when:
+        - _dynatrace_problem_id | length > 0
+        - dynatrace_close_result.json is defined
