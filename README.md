@@ -69,7 +69,7 @@ Dynatrace workflow **Event data** must be JSON like [`samples/dynatrace_eda_even
 | `namespace` | yes | Kubernetes namespace |
 | `pod_name` | yes | Pod to delete if unhealthy |
 | `incident_number` | yes | ServiceNow `INC…` to close |
-| `problem_id` | recommended | Dynatrace **API problemId** for the close step (e.g. from `event.id` in the workflow). Empty value skips close. |
+| `problem_id` | recommended | Dynatrace **API problemId** for the close step (use `{{ event()[\"event.id\"] }}` in the Dynatrace workflow — not the display ID `P-…`). Empty value skips close. |
 | `severity` | no | Optional filter / logging |
 | `pod_label_selector` | no | Wait for ready pods (default `app=demo-app`) |
 

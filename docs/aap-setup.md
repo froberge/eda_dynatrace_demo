@@ -23,6 +23,10 @@ Collections required (see [`collections/requirements.yml`](../collections/requir
 - `kubernetes.core`
 - `servicenow.itsm`
 
+The EDA decision environment only needs `ansible.eda` for the rulebook; **job execution** uses this Controller EE.
+
+:exclamation: The default decision environment is perfect for this demo. If not already in the installation of your AAP, you can get it, create it using this image pull URL. [registry.redhat.io/ansible-automation-platform-27/de-supported-rhel9:latest](registry.redhat.io/ansible-automation-platform-27/de-supported-rhel9:latest)
+
 ## 2. Create the project
 
 1. In AAP, go to **Automation Decisions** (or EDA) **Projects**.

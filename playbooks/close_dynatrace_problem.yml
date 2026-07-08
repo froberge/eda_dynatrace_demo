@@ -5,7 +5,7 @@
   gather_facts: false
 
   vars:
-    dynatrace_env_url: "{{ lookup('env', 'DYNATRACE_ENV_URL') | default('', true) | regex_replace('/$', '') }}"
+    dynatrace_env_url: "{{ lookup('env', 'DYNATRACE_ENV_URL') | default('', true) | regex_replace('/$', '') | regex_replace('\\.apps\\.', '.') }}"
     dynatrace_api_token: "{{ lookup('env', 'DYNATRACE_API_TOKEN') | default('', true) }}"
     _dynatrace_problem_id: "{{ dynatrace_problem_id | default('') }}"
 
@@ -35,6 +35,14 @@
         fail_msg: >-
           Dynatrace API credentials are missing. Attach a Custom credential to this job template
           that injects DYNATRACE_ENV_URL and DYNATRACE_API_TOKEN (token needs problems.write scope).
+      when: _dynatrace_problem_id | length > 0
+
+    - name: Show Dynatrace environment URL and problem ID in use
+      ansible.builtin.debug:
+        msg:
+          dynatrace_env_url: "{{ dynatrace_env_url }}"
+          dynatrace_problem_id: "{{ _dynatrace_problem_id }}"
+          close_url: "{{ dynatrace_env_url }}/api/v2/problems/{{ _dynatrace_problem_id }}/close"
       when: _dynatrace_problem_id | length > 0
 
     - name: Close Dynatrace problem

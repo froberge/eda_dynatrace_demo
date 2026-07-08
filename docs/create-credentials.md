@@ -40,7 +40,7 @@ env:
 ###### Dynatrace Credential
 
 1. In order to be able to call Dynatrace we will have to create a Dynatrace credential Type.
-![dynatrace_credential_type](img/dynatrace_now_credential_type.png)
+![dynatrace_credential_type](img/dynatrace_credential_type.png)
 _input configuration
 ```
 fields:
@@ -64,4 +64,14 @@ env:
 ```
 
 1. Let's now create the credential.
+
+**URL:** Use the **environment API** base URL, not the Apps UI URL.
+
+| Wrong (Apps UI) | Correct (Environment API) |
+|-----------------|---------------------------|
+| `https://<env>.apps.dynatracelabs.com` | `https://<env>.dynatracelabs.com` |
+| `https://<env>.apps.dynatrace.com` | `https://<env>.live.dynatrace.com` |
+
+Example for Sprint labs: `https://kgu1516h.sprint.dynatracelabs.com`
+
 ![dynatrace_credential](img/dynatrace_credential.png)
