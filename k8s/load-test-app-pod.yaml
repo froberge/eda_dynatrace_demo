@@ -11,3 +11,7 @@ spec:
   containers:
   - image: gokev/load-test-app
     name: load-test-app
+    ports:
+    - name: http
+      containerPort: 80
+      protocol: TCP
