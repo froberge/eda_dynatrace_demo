@@ -5,7 +5,7 @@
 ###### ServiceNow Credential
 
 1. In order to be able to call ServiceNow we will have to create a ServiceNow credential Type.
-![servicenow_credential_type](../docs/images/service_now_credential_type.png)
+![servicenow_credential_type](../docs/img/service_now_credential_type.png)
 _input configuration
 ```
 fields:
