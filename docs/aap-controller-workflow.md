@@ -39,7 +39,7 @@ Build or select an EE that includes:
 
 See `[collections/requirements.yml](../collections/requirements.yml)` and [build-decision-environment.md](build-decision-environment.md) (build from `[execution-environment.yml](../execution-environment.yml)`).
 
-:exclamation: You can also use this [image. quay.io/froberge/eda-dynatrace-demo-ee:latest](podman pull quay.io/froberge/eda-dynatrace-demo-ee)
+:exclamation: You can also use this [quay.io/froberge/eda-dynatrace-demo-ee:latest](podman pull quay.io/froberge/eda-dynatrace-demo-ee)
 
 ## 3. Inventory and credential
 
