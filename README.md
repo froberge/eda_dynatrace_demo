@@ -27,6 +27,10 @@ sequenceDiagram
     JT->>DTclose: Close problem
 ```
 
+
+
+
+
 ## Prerequisites
 
 - Ansible Automation Platform **2.6+** with EDA and Event Streams
@@ -35,59 +39,70 @@ sequenceDiagram
 - ServiceNow instance and credentials for incident updates
 - Dynatrace API token with `problems.write` for closing problems after remediation
 
+
+
 ## Repository layout
 
-| Path | Description |
-|------|-------------|
-| [`rulebooks/k8s_cluster_remediation.yml`](rulebooks/k8s_cluster_remediation.yml) | EDA rulebook → `run_workflow_template` on Controller |
-| [`playbooks/save_workflow_stats.yml`](playbooks/save_workflow_stats.yml) | Normalize EDA payload and publish workflow facts |
-| [`playbooks/restart_k8_pod.yml`](playbooks/restart_k8_pod.yml) | Delete unhealthy pod and wait for workload |
-| [`playbooks/document_servicenow_incident.yml`](playbooks/document_servicenow_incident.yml) | Set ServiceNow incident to In Progress with work notes |
-| [`playbooks/close_dynatrace_problem.yml`](playbooks/close_dynatrace_problem.yml) | Close Dynatrace problem via Problems API v2 after remediation |
-| [`playbooks/close_servicenow_incident.yml`](playbooks/close_servicenow_incident.yml) | Close ServiceNow incident (optional workflow step) |
-| [`docs/aap-controller-workflow.md`](docs/aap-controller-workflow.md) | Job template + workflow job template setup |
-| [`vars/aap_controller.yml.example`](vars/aap_controller.yml.example) | Activation variables for workflow template name |
-| [`k8s/`](k8s/) | Sample `demo-app` Deployment for the demo |
-| [`inventory/openshift_k8s_inventory.py`](inventory/openshift_k8s_inventory.py) | Dynamic pod inventory script (kubernetes.core 6.x compatible) |
-| [`k8s/rbac/openshift_aap_sa.yaml`](k8s/rbac/openshift_aap_sa.yaml) | ServiceAccount + ClusterRole for AAP OpenShift inventory |
-| [`docs/aap-openshift-inventory.md`](docs/aap-openshift-inventory.md) | OpenShift inventory credential and sync |
-| [`samples/`](samples/) | Example event JSON and curl test script |
-| [`docs/`](docs/) | AAP, Dynatrace, and ServiceNow setup guides |
-| [`docs/build-decision-environment.md`](docs/build-decision-environment.md) | Build/push EE image (`linux/amd64`, OpenShift-friendly `/runner` HOME) |
-| [`scripts/build-ee.sh`](scripts/build-ee.sh) | Build + verify EE image (`linux/amd64`) |
-| [`scripts/verify-ee.sh`](scripts/verify-ee.sh) | Pre-push checks (HOME, ansible.eda, galaxy) |
-| [`execution-environment.yml`](execution-environment.yml) | ansible-builder definition (EDA + Controller) |
-| [`collections/requirements.yml`](collections/requirements.yml) | Ansible collections |
+
+| Path                                                                                       | Description                                                            |
+| ------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------- |
+| `[rulebooks/k8s_cluster_remediation.yml](rulebooks/k8s_cluster_remediation.yml)`           | EDA rulebook → `run_workflow_template` on Controller                   |
+| `[playbooks/save_workflow_stats.yml](playbooks/save_workflow_stats.yml)`                   | Normalize EDA payload and publish workflow facts                       |
+| `[playbooks/restart_k8_pod.yml](playbooks/restart_k8_pod.yml)`                             | Delete unhealthy pod and wait for workload                             |
+| `[playbooks/document_servicenow_incident.yml](playbooks/document_servicenow_incident.yml)` | Set ServiceNow incident to In Progress with work notes                 |
+| `[playbooks/close_dynatrace_problem.yml](playbooks/close_dynatrace_problem.yml)`           | Close Dynatrace problem via Problems API v2 after remediation          |
+| `[playbooks/close_servicenow_incident.yml](playbooks/close_servicenow_incident.yml)`       | Close ServiceNow incident (optional workflow step)                     |
+| `[docs/aap-controller-workflow.md](docs/aap-controller-workflow.md)`                       | Job template + workflow job template setup                             |
+| `[vars/aap_controller.yml.example](vars/aap_controller.yml.example)`                       | Activation variables for workflow template name                        |
+| `[k8s/](k8s/)`                                                                             | Sample `demo-app` Deployment for the demo                              |
+| `[inventory/openshift_k8s_inventory.py](inventory/openshift_k8s_inventory.py)`             | Dynamic pod inventory script (kubernetes.core 6.x compatible)          |
+| `[k8s/rbac/openshift_aap_sa.yaml](k8s/rbac/openshift_aap_sa.yaml)`                         | ServiceAccount + ClusterRole for AAP OpenShift inventory               |
+| `[docs/aap-openshift-inventory.md](docs/aap-openshift-inventory.md)`                       | OpenShift inventory credential and sync                                |
+| `[samples/](samples/)`                                                                     | Example event JSON and curl test script                                |
+| `[docs/](docs/)`                                                                           | AAP, Dynatrace, and ServiceNow setup guides                            |
+| `[docs/build-decision-environment.md](docs/build-decision-environment.md)`                 | Build/push EE image (`linux/amd64`, OpenShift-friendly `/runner` HOME) |
+| `[scripts/build-ee.sh](scripts/build-ee.sh)`                                               | Build + verify EE image (`linux/amd64`)                                |
+| `[scripts/verify-ee.sh](scripts/verify-ee.sh)`                                             | Pre-push checks (HOME, ansible.eda, galaxy)                            |
+| `[execution-environment.yml](execution-environment.yml)`                                   | ansible-builder definition (EDA + Controller)                          |
+| `[collections/requirements.yml](collections/requirements.yml)`                             | Ansible collections                                                    |
+
+
+
 
 ## Event payload contract
 
-Dynatrace workflow **Event data** must be JSON like [`samples/dynatrace_eda_event.json`](samples/dynatrace_eda_event.json):
+Dynatrace workflow **Event data** must be JSON like `[samples/dynatrace_eda_event.json](samples/dynatrace_eda_event.json)`:
 
-| Field | Required | Description |
-|-------|----------|-------------|
-| `eventType` | yes | Must be `K8S_POD_REMEDIATION` |
-| `namespace` | yes | Kubernetes namespace |
-| `pod_name` | yes | Pod to delete if unhealthy |
-| `incident_number` | yes | ServiceNow `INC…` to close |
-| `problem_id` | recommended | Dynatrace **API problemId** for the close step (use `{{ event()[\"event.id\"] }}` in the Dynatrace workflow — not the display ID `P-…`). Empty value skips close. |
-| `severity` | no | Optional filter / logging |
-| `pod_label_selector` | no | Wait for ready pods (default `app=demo-app`) |
+
+| Field                | Required    | Description                                                                                                                                                       |
+| -------------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `eventType`          | yes         | Must be `K8S_POD_REMEDIATION`                                                                                                                                     |
+| `namespace`          | yes         | Kubernetes namespace                                                                                                                                              |
+| `pod_name`           | yes         | Pod to delete if unhealthy                                                                                                                                        |
+| `incident_number`    | yes         | ServiceNow `INC…` to close                                                                                                                                        |
+| `problem_id`         | recommended | Dynatrace **API problemId** for the close step (use `{{ event()[\"event.id\"] }}` in the Dynatrace workflow — not the display ID `P-…`). Empty value skips close. |
+| `severity`           | no          | Optional filter / logging                                                                                                                                         |
+| `pod_label_selector` | no          | Wait for ready pods (default `app=demo-app`)                                                                                                                      |
+
+
+
 
 ## Create credentials in AAP
 
 The ServiceNow and Dynatrace playbooks read credentials from **environment variables** injected by Automation Controller job templates. Create one credential per integration, then attach each credential to the matching job template(s).
 
-Here how to create the credential [`docs/create-credentials.md`](docs/create-credentials.md)
-
+Here how to create the credential `[docs/create-credentials.md](docs/create-credentials.md)`
 
 ## Quick start (demo script)
 
 1. Have the demo app deploy
 2. **Configure AAP** — [docs/aap-setup.md](docs/aap-setup.md) (event stream, EDA activation), [docs/aap-openshift-inventory.md](docs/aap-openshift-inventory.md) (OpenShift SA + inventory), and [docs/aap-controller-workflow.md](docs/aap-controller-workflow.md) (Controller workflow + job template)
 3. Dynatrace workflow and Event Stream configured ([docs/aap-setup.md](docs/aap-setup.md))
-4. **ServiceNow and Dynatrace credentials** created in AAP (see [Create credentials in AAP](#create-credentials-in-aap))
+4. **ServiceNow and Dynatrace credentials** created in AAP. [docs/create-credentials.md](docs/create-credentials.md)
 5. **Break a pod** and confirm Dynatrace fires the workflow
 6. **Verify:** EDA rule audit, Controller workflow job success, new healthy pod, ServiceNow updated, Dynatrace problem closed
+
+
 
 ### Test without Dynatrace
 
@@ -100,6 +115,8 @@ chmod +x samples/curl_post_event.sh
 ./samples/curl_post_event.sh
 ```
 
+
+
 ## Collections
 
 ```bash
@@ -111,12 +128,16 @@ ansible-galaxy collection install -r collections/requirements.yml
 - `servicenow.itsm` — incident updates
 - `ansible.builtin.uri` — Dynatrace Problems API (no extra collection)
 
+
+
 ## References
 
 - [Dynatrace → Red Hat EDA (Event Streams)](https://docs.dynatrace.com/docs/analyze-explore-automate/workflows/default-workflow-actions/actions/red-hat/redhat-even-driven-ansible)
 - [AAP simplified event routing](https://docs.redhat.com/en/documentation/red_hat_ansible_automation_platform/2.5/html/using_automation_decisions/simplified-event-routing)
 - [kubernetes.core.k8s](https://docs.ansible.com/ansible/latest/collections/kubernetes/core/k8s_module.html)
 - [Dynatrace Problems API v2 — close problem](https://docs.dynatrace.com/docs/dynatrace-api/environment-api/problems-v2/problems/post-close)
+
+
 
 ## License
 
