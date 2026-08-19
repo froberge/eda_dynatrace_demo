@@ -62,10 +62,22 @@ Create the job template and workflow job template before enabling the rulebook a
 - **Prompt on launch** for extra variables (required)
 - Kubernetes and ServiceNow credentials on the job template
 
-## 6. Rulebook activation
+## 6. Create a credential for EDA to call AAP.
+
+1. Create an API token for the Users Admin.  Access Management -> Users -> (Select User) -> API Tokens.
+2. `Create API Token`  and leave the OAuth application empty, select scope Write 
+3. Copy the Token given you will need it when creating the credential.
+4. Create a new credential. Automation Decision -> Infrastructure -> Credential
+   - Credential Type: Red Hat Ansible Automation Platform
+   - Username: admin
+   - OAuth Token: [The token just created]
+   - URL: the controller url + /api/controller/
+![aap_credential](img/aap_credential.png)
+
+## 7. Rulebook activation
 
 1. Go to **Rulebook activations** > **Create**.
-2. Select the synced project and rulebook `k8s_pod_remediation.yml`.
+2. Select the synced project and rulebook `k8s_pod_remediation-event.yml`.
 3. Choose a decision environment with the required collections (`ansible.eda` at minimum).
 4. **Map the event stream** to the rulebook source:
    - Open source mapping (gear icon).
@@ -75,7 +87,7 @@ Create the job template and workflow job template before enabling the rulebook a
 7. Enable the activation.
 
 
-## 7. Verify with a test event
+## 8. Verify with a test event
 
 ```bash
 export EVENT_STREAM_URL="https://<aap-host>/eda-event-streams/api/eda/v1/external_event_stream/<uuid>/post"
