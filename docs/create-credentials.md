@@ -65,6 +65,14 @@ env:
 
 1. Let's now create the credential.
 
+**Token type:** Classic **Personal access token** (or environment **Access token**), **not** a Latest **platform token**. The close playbook calls `POST /api/v2/problems/{id}/close` with `Authorization: Api-Token …`. Platform tokens 401 on that API.
+
+**How to create it (Latest UI):**
+
+1. Enable personal access tokens if needed: **Settings → Integration → Access tokens** → **Enable personal access tokens**.
+2. User menu (avatar) → **Personal access tokens** → **Generate new token**.
+3. Scope: **Write problems** (`problems.write`). Generate and copy the value (shown once).
+
 **URL:** Use the **environment API** base URL, not the Apps UI URL.
 
 | Wrong (Apps UI) | Correct (Environment API) |

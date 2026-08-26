@@ -37,7 +37,7 @@ sequenceDiagram
 - Dynatrace with **Workflows** and [Red Hat Ansible for Workflows](https://docs.dynatrace.com/docs/analyze-explore-automate/workflows/default-workflow-actions/actions/red-hat/redhat-even-driven-ansible)
 - Kubernetes cluster and credentials for pod delete
 - ServiceNow instance and credentials for incident updates
-- Dynatrace API token with `problems.write` for closing problems after remediation
+- Dynatrace API token with `problems.write` for closing problems after remediation — Classic **Personal access token**, not a platform token ([docs/create-credentials.md](docs/create-credentials.md))
 
 
 
@@ -53,8 +53,8 @@ sequenceDiagram
 | `[playbooks/close_dynatrace_problem.yml](playbooks/close_dynatrace_problem.yml)`           | Close Dynatrace problem via Problems API v2 after remediation          |
 | `[playbooks/close_servicenow_incident.yml](playbooks/close_servicenow_incident.yml)`       | Close ServiceNow incident (optional workflow step)                     |
 | `[docs/aap-controller-workflow.md](docs/aap-controller-workflow.md)`                       | Job template + workflow job template setup                             |
-| `[vars/aap_controller.yml.example](vars/aap_controller.yml.example)`                       | Activation variables for workflow template name                        |
-| `[k8s/](k8s/)`                                                                             | Sample `demo-app` Deployment for the demo                              |
+| `[k8s/](k8s/)`                                                                             | Sample `load-test-app` Pod, Service, and Route in `ia-lab`             |
+| `[dynatrace/](dynatrace/)`                                                                 | Dynatrace demo checklist: Operator, DynaKube, license, EDA Event data  |
 | `[inventory/openshift_k8s_inventory.py](inventory/openshift_k8s_inventory.py)`             | Dynamic pod inventory script (kubernetes.core 6.x compatible)          |
 | `[k8s/rbac/openshift_aap_sa.yaml](k8s/rbac/openshift_aap_sa.yaml)`                         | ServiceAccount + ClusterRole for AAP OpenShift inventory               |
 | `[docs/aap-openshift-inventory.md](docs/aap-openshift-inventory.md)`                       | OpenShift inventory credential and sync                                |
@@ -71,7 +71,7 @@ sequenceDiagram
 
 ## Event payload contract
 
-Dynatrace workflow **Event data** must be JSON like `[samples/dynatrace_eda_event.json](samples/dynatrace_eda_event.json)`:
+Dynatrace workflow **Event data** must be JSON like `[dynatrace/eda-event-data.json](dynatrace/eda-event-data.json)` (same shape as `[samples/dynatrace_eda_event.json](samples/dynatrace_eda_event.json)`):
 
 
 | Field                | Required    | Description                                                                                                                                                       |
@@ -95,12 +95,13 @@ Here how to create the credential `[docs/create-credentials.md](docs/create-cred
 
 ## Quick start (demo script)
 
-1. Have the demo app deploy
-2. **Configure AAP** — [docs/aap-setup.md](docs/aap-setup.md) (event stream, EDA activation), [docs/aap-openshift-inventory.md](docs/aap-openshift-inventory.md) (OpenShift SA + inventory), and [docs/aap-controller-workflow.md](docs/aap-controller-workflow.md) (Controller workflow + job template)
-3. Dynatrace workflow and Event Stream configured ([docs/aap-setup.md](docs/aap-setup.md))
-4. **ServiceNow and Dynatrace credentials** created in AAP. [docs/create-credentials.md](docs/create-credentials.md)
-5. **Break a pod** and confirm Dynatrace fires the workflow
-6. **Verify:** EDA rule audit, Controller workflow job success, new healthy pod, ServiceNow updated, Dynatrace problem closed
+1. Have the demo app deploy (`k8s/`)
+2. **Dynatrace portion** — [dynatrace/README.md](dynatrace/README.md) (Operator, DynaKube, HTTP 5xx custom alert, **External requests** for ServiceNow + AAP, import [ia-lab-aap-events.workflow-template.yaml](dynatrace/ia-lab-aap-events.workflow-template.yaml))
+3. **Configure AAP** — [docs/aap-setup.md](docs/aap-setup.md) (event stream, EDA activation), [docs/aap-openshift-inventory.md](docs/aap-openshift-inventory.md) (OpenShift SA + inventory), and [docs/aap-controller-workflow.md](docs/aap-controller-workflow.md) (Controller workflow + job template)
+4. Map the Event Stream connection when importing the Dynatrace workflow; curl tests use [dynatrace/eda-event-data.json](dynatrace/eda-event-data.json)
+5. **ServiceNow and Dynatrace credentials** created in AAP. [docs/create-credentials.md](docs/create-credentials.md)
+6. **Generate HTTP 5xx** on `load-test-app` (keep a loop running) and confirm Dynatrace fires **IA-Lab - AAP Events**
+7. **Verify:** EDA rule audit, Controller workflow `remediate_k8s_cluster` success, new healthy pod, ServiceNow INC updated, Dynatrace problem closed (HTTP **204** from the close API is success)
 
 
 

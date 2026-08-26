@@ -1,0 +1,13 @@
+# Dynatrace Operator project. Empty node-selector avoids cluster default
+# selectors that would block Operator / ActiveGate / CSI pods.
+apiVersion: project.openshift.io/v1
+kind: Project
+metadata:
+  name: dynatrace
+  annotations:
+    openshift.io/display-name: dynatrace
+    openshift.io/description: Dynatrace Operator for the EDA OpenShift demo
+    openshift.io/node-selector: ""
+  labels:
+    app.kubernetes.io/part-of: eda-dynatrace-demo
+    app.kubernetes.io/component: dynatrace-operator

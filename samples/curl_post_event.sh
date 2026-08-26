@@ -35,13 +35,15 @@ path = os.environ["PAYLOAD_FILE"]
 with open(path, encoding="utf-8") as f:
     data = json.load(f)
 
+target = data["eventData"] if isinstance(data.get("eventData"), dict) else data
+
 pod = os.environ.get("POD_NAME")
 if pod:
-    data["pod_name"] = pod
+    target["pod_name"] = pod
 
 inc = os.environ.get("INCIDENT_NUMBER")
 if inc:
-    data["incident_number"] = inc
+    target["incident_number"] = inc
 
 print(json.dumps(data))
 PY

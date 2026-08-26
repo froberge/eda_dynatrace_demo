@@ -6,6 +6,7 @@ vault-pass.txt
 kubeconfig
 kubeconfig.*
 **/kubeconfig
+dynatrace/tokens-secret.yaml
 
 # Ansible
 *.retry

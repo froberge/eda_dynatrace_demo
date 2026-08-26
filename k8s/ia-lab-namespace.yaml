@@ -10,6 +10,7 @@ metadata:
     openshift.io/sa.scc.uid-range: 1000750000/10000
     security.openshift.io/MinimallySufficientPodSecurityStandard: restricted
   labels:
+    dt-monitoring: "true"
     dynakube.internal.dynatrace.com/instance: openshift-july-agents
     kubernetes.io/metadata.name: ia-lab
     pod-security.kubernetes.io/audit: restricted

@@ -56,14 +56,15 @@
         body_format: json
         body:
           message: "{{ dynatrace_close_message_resolved }}"
-        status_code: [200, 201]
+        status_code: [200, 201, 204]
         return_content: true
       register: dynatrace_close_result
+      no_log: true
       when: _dynatrace_problem_id | length > 0
 
     - name: Show Dynatrace close response
       ansible.builtin.debug:
-        var: dynatrace_close_result.json
-      when:
-        - _dynatrace_problem_id | length > 0
-        - dynatrace_close_result.json is defined
+        msg:
+          status: "{{ dynatrace_close_result.status }}"
+          body: "{{ dynatrace_close_result.json | default('(empty; 204 means already closed or no body)') }}"
+      when: _dynatrace_problem_id | length > 0

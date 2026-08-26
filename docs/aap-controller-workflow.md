@@ -174,34 +174,23 @@ You can extend the workflow later (approval step, ServiceNow close job) without 
 
 ## 6. Dynatrace workflow — problem_id in Event data
 
-The close step needs the **API problemId** (not the display ID `P-…` unless your tenant accepts it on the close endpoint). In the Dynatrace **Send event to Event-Driven Ansible** action, set `problem_id` in Event data, for example:
+Import [ia-lab-aap-events.workflow-template.yaml](../dynatrace/ia-lab-aap-events.workflow-template.yaml) rather than building the Dynatrace workflow by hand ([dynatrace/README.md](../dynatrace/README.md) sections 9–10). The close step needs the **API problemId** (not the display ID `P-…` unless your tenant accepts it on the close endpoint). The template already sets:
 
 ```json
-{
-  "eventData": {
-    "eventType": "K8S_POD_REMEDIATION",
-    "namespace": "{{ ... }}",
-    "pod_name": "{{ ... }}",
-    "incident_number": "{{ ... }}",
-    "problem_id": "{{ event()[\"event.id\"] }}"
-  }
-}
+"problem_id": "{{ event()[\"event.id\"] }}"
 ```
 
-Validate the expression against your Davis problem trigger payload in a workflow test run. See `[samples/dynatrace_eda_event.json](../samples/dynatrace_eda_event.json)` for the JSON shape.
+`incident_number` comes from `result("create_initial_incident")["number"]`. Validate against a Davis payload in a workflow test run. See `[samples/dynatrace_eda_event.json](../samples/dynatrace_eda_event.json)` for the JSON shape EDA expects.
 
-## 7. EDA rulebook activation variables
-
-On the rulebook activation, set **Variables** (example from `[vars/aap_controller.yml.example](../vars/aap_controller.yml.example)`):
+The rulebook [rulebooks/k8s_cluster_remediation-event.yml](../rulebooks/k8s_cluster_remediation-event.yml) hardcodes:
 
 ```yaml
-remediation_workflow_job_template: "EDA - Dynatrace K8s Remediation"
-controller_organization: "Default"
+run_workflow_template:
+  name: remediate_k8s_cluster
+  organization: Default
 ```
 
-The rulebook references these names in `run_workflow_template`.
-
-Ensure the activation is linked to your **Automation Controller** instance (EDA settings / organization default).
+The Controller workflow job template **must** be named `remediate_k8s_cluster` in organization **Default**. Ensure the activation is linked to your **Automation Controller** instance (EDA settings / organization default) and uses the **Red Hat Ansible Automation Platform** credential from [aap-setup.md](aap-setup.md) section 6.
 
 ## 8. Extra variables passed from events
 
@@ -243,7 +232,8 @@ The engine also injects `ansible_eda` (event metadata). **Prompt on launch** for
 | `k8s inventory plugin has been removed`           | Inventory file must be `.py` script, not YAML `plugin: kubernetes.core.k8s` (EE has kubernetes.core 6.x)                                         |
 | Inventory sync OK but job fails                   | Remediation uses **EDA Localhost** + credential on job template, not pod SSH hosts                                                               |
 | Dynatrace close skipped                           | `problem_id` empty in Event data — playbook skips; set API problemId in Dynatrace workflow                                                       |
-| Dynatrace close 401/403                           | Token missing `problems.write`; check `DYNATRACE_ENV_URL` and credential on job template                                                         |
+| Dynatrace close 401/403                           | Token missing `problems.write`; use a Classic **Personal access token**, not a platform token; check `DYNATRACE_ENV_URL`                         |
+| Dynatrace close: status 204 treated as failed     | API succeeded (already closed / no body). Playbook must allow `204` on the `uri` task (`close_dynatrace_problem.yml`)                            |
 | Dynatrace close 404                               | Wrong `DYNATRACE_ENV_URL` (use environment API URL without `.apps.`, e.g. `https://<env>.dynatracelabs.com`), wrong `problem_id` format (display ID vs API problemId), or problem already closed |
 
 

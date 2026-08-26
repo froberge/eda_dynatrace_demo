@@ -1,0 +1,10 @@
+# Opt ia-lab into OneAgent injection and metadata enrichment.
+# DynaKube namespaceSelector matches dt-monitoring=true.
+# Restart load-test-app after apply so the webhook can mutate the new pod.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ia-lab
+  labels:
+    dt-monitoring: "true"
+    app.kubernetes.io/part-of: eda-dynatrace-demo

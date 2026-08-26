@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ansible/ansible-lint/main/src/ansiblelint/schemas/ansible.json#/$defs/tasks
 ---
 # Set fact {{ eda_fact }} to a list from {{ eda_raw }}.
 - name: Normalize EDA value from YAML or JSON list for {{ eda_fact }}

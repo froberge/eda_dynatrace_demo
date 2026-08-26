@@ -1,0 +1,205 @@
+metadata:
+  version: '1'
+  dependencies:
+    apps:
+    - id: dynatrace.automations
+      version: ^1.3301.5
+    - id: dynatrace.biz.explore
+      version: ^1.41.0
+    - id: dynatrace.redhat.ansible
+      version: ^2.5.3
+    - id: dynatrace.servicenow
+      version: ^2.5.3
+  inputs:
+  - type: connection
+    schema: app:dynatrace.redhat.ansible:eda-webhook.connection
+    targets:
+    - tasks.send_event_to_event-driven-ansible_2.connectionId
+  - type: connection
+    schema: app:dynatrace.servicenow:connection
+    targets:
+    - tasks.create_initial_incident.connectionId
+workflow:
+  title: IA-Lab - AAP Events
+  description: ''
+  schemaVersion: 4
+  trigger:
+    eventTrigger:
+      isActive: true
+      triggerConfiguration:
+        type: event
+        value:
+          query: event.name == "ia-lab-500" and event.kind =="DAVIS_PROBLEM"
+          eventType: events
+  result: null
+  type: STANDARD
+  input: {}
+  hourlyExecutionLimit: 1000
+  guide: null
+  tasks:
+    store_information:
+      name: store_information
+      input:
+        from: JSON
+        json: "{\n  \"eventType\": \"K8S_POD_REMEDIATION\",\n  \"DT_root_event_id\"\
+          : \"{{result(\"fetch_trigger_event\")[\"records\"][0][\"event.id\"]}}\"\
+          ,\n  \"namespace\": \"ia-lab\",\n  \"pod_name\": \"load-test-app\",\n  \"\
+          incident_number\": \"{{ result(\"create_initial_incident\")[\"number\"] }}\"\
+          ,\n  \"problem_id\": \"{{event()[\"event.id\"] }}\"\n}"
+        eventType: ia-lab.aap.incident.created
+        eventCategory: incident
+        eventProvider: IA-Lab
+      action: dynatrace.biz.explore:ingestbizevent
+      position:
+        x: 0
+        y: 4
+      conditions:
+        states:
+          send_event_to_event-driven-ansible_2: OK
+      description: This workflow action helps you ingest Business Events into GRAIL.
+      predecessors:
+      - send_event_to_event-driven-ansible_2
+    fetch_trigger_event:
+      name: fetch_trigger_event
+      input:
+        query: "fetch dt.davis.events, from:now() - 7d\n| filter event.id in [\n \
+          \   fetch dt.davis.problems, from:now() - 7d\n    | filter matchesPhrase(event.id,\
+          \ \"{{event()[\"event.id\"]}}\")\n    | filter matchesPhrase(event.name,\
+          \ \"ia-lab-500\")\n    | filter not(dt.davis.is_duplicate)\n    | fieldsKeep\
+          \ dt.davis.event_ids\n]\n| join [\n    fetch dt.davis.problems, from:now()\
+          \ - 7d\n    | filter matchesPhrase(event.name, \"ia-lab-500\")\n    | filter\
+          \ not(dt.davis.is_duplicate)\n    | expand event_id = dt.davis.event_ids\n\
+          \    | fieldsKeep display_id, event_id\n], on: { left[event.id] == right[event_id]\
+          \ }\n| fieldsAdd problem_id = right.display_id\n| fields timestamp, problem_id,\
+          \ event.id, event.name, event.type, event.category, event.status, event.description,\
+          \ `aap-event-type`\n| sort timestamp asc"
+      action: dynatrace.automations:execute-dql-query
+      position:
+        x: 0
+        y: 1
+      conditions:
+        else: STOP
+        custom: ''
+        states: {}
+      description: Make use of Dynatrace Grail data in your workflow.
+      predecessors: []
+      customSampleResult:
+        types:
+        - mappings:
+            event.id:
+              type: string
+            timestamp:
+              type: timestamp
+            event.name:
+              type: string
+            event.type:
+              type: string
+            problem_id:
+              type: string
+            event.status:
+              type: string
+            aap-event-type:
+              type: string
+            event.category:
+              type: string
+            event.description:
+              type: string
+          indexRange:
+          - 0
+          - 0
+        records:
+        - event.id: '1642249991341160784_1780061215952'
+          timestamp: '2026-05-29T14:08:02.412000000Z'
+          event.name: ia-lab-500
+          event.type: CUSTOM_ALERT
+          problem_id: P-2605291
+          event.status: CLOSED
+          aap-event-type: K8S_POD_REMEDIATION
+          event.category: CUSTOM_ALERT
+          event.description: This is a simulate event trigger by the lab app returning
+            503.  We are controlling the triggering of the automated workflow from
+            here
+        metadata:
+          grail:
+            query: "fetch dt.davis.events, from:now() - 7d\n| filter event.id in [\n\
+              \    fetch dt.davis.problems, from:now() - 7d\n    | filter matchesPhrase(event.id,\
+              \ \"P-2605291\")\n    | filter matchesPhrase(event.name, \"ia-lab-500\"\
+              )\n    | filter not(dt.davis.is_duplicate)\n    | fieldsKeep dt.davis.event_ids\n\
+              ]\n| join [\n    fetch dt.davis.problems, from:now() - 7d\n    | filter\
+              \ matchesPhrase(event.name, \"ia-lab-500\")\n    | filter not(dt.davis.is_duplicate)\n\
+              \    | expand event_id = dt.davis.event_ids\n    | fieldsKeep display_id,\
+              \ event_id\n], on: { left[event.id] == right[event_id] }\n| fieldsAdd\
+              \ problem_id = right.display_id\n| fields timestamp, problem_id, event.id,\
+              \ event.name, event.type, event.category, event.status, event.description,\
+              \ `aap-event-type`\n| sort timestamp asc"
+            locale: und
+            queryId: 9e52ddfd-6dd4-4dad-aa24-425058cec71e
+            sampled: false
+            timezone: Z
+            dqlVersion: V1_0
+            scannedBytes: 34668817
+            notifications: []
+            canonicalQuery: "fetch dt.davis.events, from:now() - 7d\n| filter event.id\
+              \ in \n\t[\n\t\tfetch dt.davis.problems, from:now() - 7d\n\t\t| filter\
+              \ matchesPhrase(event.id, \"P-2605291\")\n\t\t| filter matchesPhrase(event.name,\
+              \ \"ia-lab-500\")\n\t\t| filter NOT dt.davis.is_duplicate\n\t\t| fieldsKeep\
+              \ dt.davis.event_ids\n\t]\n| join \n\t[\n\t\tfetch dt.davis.problems,\
+              \ from:now() - 7d\n\t\t| filter matchesPhrase(event.name, \"ia-lab-500\"\
+              )\n\t\t| filter NOT dt.davis.is_duplicate\n\t\t| expand event_id = dt.davis.event_ids\n\
+              \t\t| fieldsKeep display_id, event_id\n\t], on:{left[event.id] == right[event_id]}\n\
+              | fieldsAdd problem_id = right.display_id\n| fields timestamp, problem_id,\
+              \ event.id, event.name, event.type, event.category, event.status, event.description,\
+              \ `aap-event-type`\n| sort timestamp"
+            scannedRecords: 68779
+            analysisTimeframe:
+              end: '2026-05-29T16:42:31.667Z'
+              start: '2026-05-22T16:42:31.667Z'
+            scannedDataPoints: 0
+            executionTimeMilliseconds: 124
+    create_initial_incident:
+      name: create_initial_incident
+      input:
+        group:
+          id: '-1'
+          displayName: Unassigned
+        caller: dynatrace
+        impact: '1'
+        urgency: '2'
+        category: software
+        description: 'Event details: {{ event() }}'
+        subCategory: internal application
+        connectionId: ''
+        correlationId: DT_{{ event()["event.id"] }}
+        shortDescription: '{{ event()["event.category"] }} {{ event()["event.name"]
+          }} :  {{event()["display_id"]}}   '
+      action: dynatrace.servicenow:snow-create-incident
+      position:
+        x: 0
+        y: 2
+      conditions:
+        else: STOP
+        custom: '{{ result("fetch_trigger_event").records | length > 0 }}'
+        states:
+          fetch_trigger_event: OK
+      description: Create an incident in ServiceNow
+      predecessors:
+      - fetch_trigger_event
+    send_event_to_event-driven-ansible_2:
+      name: send_event_to_event-driven-ansible_2
+      input:
+        eventData: "{\n  \"eventType\": \"K8S_POD_REMEDIATION\",\n  \"namespace\"\
+          : \"ia-lab\",\n  \"pod_name\": \"load-test-app\",\n  \"incident_number\"\
+          : \"{{ result(\"create_initial_incident\")[\"number\"] }}\",\n  \"problem_id\"\
+          : \"{{event()[\"event.id\"] }}\"\n}"
+        connectionId: ''
+      action: dynatrace.redhat.ansible:send-event-to-eda
+      position:
+        x: 0
+        y: 3
+      conditions:
+        states:
+          create_initial_incident: OK
+      description: Send an event to the Red Hat Event-Driven-Ansible Controller via
+        Event Source Plugin
+      predecessors:
+      - create_initial_incident

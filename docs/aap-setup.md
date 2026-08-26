@@ -31,7 +31,7 @@ The EDA decision environment only needs `ansible.eda` for the rulebook; **job ex
 
 1. In AAP, go to **Automation Decisions** (or EDA) **Projects**.
 2. Create a project pointing at this Git repository.
-3. Sync the project and confirm `rulebooks/k8s_pod_remediation.yml` and `playbooks/` are present.
+3. Sync the project and confirm `rulebooks/k8s_cluster_remediation-event.yml` is present.
 
 ## 3. Token Event Stream credential
 
@@ -55,12 +55,12 @@ The EDA decision environment only needs `ansible.eda` for the rulebook; **job ex
 
 ## 5. Automation Controller workflow
 
-Create the job template and workflow job template before enabling the rulebook activation. See **[aap-controller-workflow.md](aap-controller-workflow.md)** for:
+Create the job templates and workflow job template **before** enabling the rulebook activation. See **[aap-controller-workflow.md](aap-controller-workflow.md)** for:
 
-- Job template `EDA - Remediate K8s Pod` → `playbooks/remediate_k8s_pod.yml`
-- Workflow job template `EDA - Dynatrace K8s Remediation`
+- Job templates: `save-workflow-stats`, `restart-k8-pod`, `document-snow-ticket`, `close-dynatrace-problem`
+- Workflow job template **`remediate_k8s_cluster`** (must match the rulebook)
 - **Prompt on launch** for extra variables (required)
-- Kubernetes and ServiceNow credentials on the job template
+- OpenShift, ServiceNow, and Dynatrace credentials on the matching job templates
 
 ## 6. Create a credential for EDA to call AAP.
 
@@ -77,7 +77,7 @@ Create the job template and workflow job template before enabling the rulebook a
 ## 7. Rulebook activation
 
 1. Go to **Rulebook activations** > **Create**.
-2. Select the synced project and rulebook `k8s_pod_remediation-event.yml`.
+2. Select the synced project and rulebook `k8s_cluster_remediation-event.yml`.
 3. Choose a decision environment with the required collections (`ansible.eda` at minimum).
 4. **Map the event stream** to the rulebook source:
    - Open source mapping (gear icon).
