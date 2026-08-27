@@ -31,7 +31,7 @@ Do this in order. Files in this folder are the OpenShift/DynaKube side; the rest
 | 5   | Custom alert **`ia-lab-500`** on HTTP 5xx (`dt.service.request.failure_count`)                                       | Settings → Analyze and alert — [Custom alert](#8-custom-alert-ia-lab-500)                                                      |
 | 6   | Hub apps (ServiceNow, Red Hat Ansible, Business Events) + ServiceNow/EDA connections                                 | Hub / Settings — [Workflow → ServiceNow](#9-dynatrace-workflow--servicenow)                                                    |
 | 7   | **External requests** — add **both** hosts (hostname only, no `https://`): `ven05434.service-now.com` and `aap-aap.apps.cluster-rjpxx.dyn.redhatworkshops.io` | **Settings → General → External requests** — [Outbound hosts](#external-requests-two-hosts)                                    |
-| 8   | Workflow actor: `storage:events:read` (and usually `storage:buckets:read`)                                           | IAM / Workflows authorization — [Workflow actor](#workflow-actor-and-dql)                                                      |
+| 8   | Workflow actor: `storage:events:read`, `storage:events:write`, and usually `storage:buckets:read`                     | IAM / Workflows authorization — [Workflow actor](#workflow-actor-and-dql)                                                      |
 | 9   | Import [ia-lab-aap-events.workflow-template.yaml](ia-lab-aap-events.workflow-template.yaml) (**IA-Lab - AAP Events**) | Workflows → **Upload** — [Import the template](#import-the-workflow-template)                                                  |
 | 10  | Map connections; Event Stream URL + token; Event data already in the template (live INC from Create Incident)        | AAP + import wizard — [Workflow → EDA](#10-dynatrace-workflow--eda)                                                            |
 | 11  | Classic **Personal access token** with `problems.write` on the AAP close-problem credential (not a platform token) | User menu → Personal access tokens — [docs/create-credentials.md](../docs/create-credentials.md) |
@@ -314,10 +314,11 @@ The template’s first task is **`fetch_trigger_event`** (DQL on `dt.davis.event
 
 Grant the actor at least:
 
-- `storage:events:read`
+- `storage:events:read` (DQL on Davis events/problems)
+- `storage:events:write` (**Ingest business event** / `store_information`)
 - usually `storage:buckets:read`
 
-Without those, the run fails with **`NOT_AUTHORIZED_FOR_TABLE`** (table `events`). Set this under **Workflows → Settings → Authorization settings** (or the IAM policy attached to the actor).
+Without read, the run fails with **`NOT_AUTHORIZED_FOR_TABLE`**. Without write, `store_information` fails with **Couldn't ingest business events**. Set this under **Workflows → Settings → Authorization settings** (or the IAM policy attached to the actor). Also allow the AutomationEngine to use that write permission (first-run consent, or the same settings page).
 
 ### External requests (two hosts)
 
@@ -360,13 +361,19 @@ Latest UI ([Upload a workflow template](https://docs.dynatrace.com/docs/analyze-
 Task order after import:
 
 ```text
-fetch_trigger_event
-  → create_initial_incident
-      → send_event_to_event-driven-ansible_2
-          → store_information
+create_initial_incident
+  → send_event_to_event-driven-ansible_2
+      → store_information
+fetch_trigger_event   (parallel, optional; does not gate ServiceNow)
 ```
 
 Do not rename `create_initial_incident`. Downstream tasks use `result("create_initial_incident")["number"]`.
+
+If a run shows **`create_initial_incident` = discarded**, the live workflow still has the old condition `result("fetch_trigger_event").records | length > 0`. Open that task → **Conditions** → delete the custom expression (and remove `fetch_trigger_event` as a predecessor). Problem-trigger payloads already include `event()`; an empty DQL result must not skip ServiceNow. Save. Do not wait for a re-import.
+
+If **`store_information`** fails with `list object has no element 0`, the JSON still uses `result("fetch_trigger_event")["records"][0]["event.id"]`. Replace **DT_root_event_id** with `{{ event()["event.id"] }}` (same value as **problem_id**). Do not index `[0]` on the DQL result.
+
+If **`store_information`** fails with **Invalid JSON** / `Expected ',' or '}'` at line 3, the Business event data field was parsed as JSON **before** expressions ran. Inner double quotes in `{{ event()["event.id"] }}` terminate the string. Use **single quotes** inside expressions: `{{ event()['event.id'] }}` and `{{ result('create_initial_incident')['number'] }}`. Do not paste `\"` from markdown.
 
 ### After import: fix ServiceNow fields
 
@@ -384,18 +391,22 @@ Run once against a Davis payload and confirm the task result includes an inciden
 
 ### Trigger on `ia-lab-500`
 
-The template ships this event trigger (already **active**):
+The generic **Event** query (`event.name == "ia-lab-500" and event.kind == "DAVIS_PROBLEM"`) starts a workflow for **every** matching Grail row. While HTTP 5xx continue, Davis writes open / refresh / close rows for the **same** `event.id`. Each run creates another ServiceNow INC (correlation ID does not dedupe).
 
-```text
-event.name == "ia-lab-500" and event.kind == "DAVIS_PROBLEM"
-```
+Use a **Problem trigger** instead (once when the problem **opens**):
 
-That AND only fires if a notebook proves Davis **problems** use `event.name` **`ia-lab-500`**. If executions never start:
+1. Open **IA-Lab - AAP Events** → trigger.
+2. Remove the Event trigger if it is still a custom DQL **events** query.
+3. Add **Problem trigger**:
+   - **Problem state:** **active** (not **active or closed**)
+   - **Updates:** **off**
+   - **Additional custom filter:** `event.name == "ia-lab-500"`
+   - Category **Custom** (and **Error** if the UI requires a category)
+4. Save.
 
-- Prefer **Problem** state **active** (or **active or closed** if problems close too fast). No minimum duration.
-- Davis **event** is `event.kind == "DAVIS_EVENT"` (name is typically `ia-lab-500`). Davis **problem** is `DAVIS_PROBLEM` and the name **may differ** — do not keep the AND unless the notebook match is real.
+Do **not** enable **Updates** and do **not** use **active or closed** for this demo. Re-import [ia-lab-aap-events.workflow-template.yaml](ia-lab-aap-events.workflow-template.yaml) only if you prefer to replace the whole workflow; map connections again after import.
 
-Problems that are already **CLOSED** can still create an INC; keep a 500 loop running if you want an **ACTIVE** Davis problem at the same time.
+Duplicate INCs already created (same `problem_id`, different `INC…`) can be closed manually in ServiceNow.
 
 ## 10. Dynatrace workflow → EDA
 
@@ -474,6 +485,9 @@ You are already consuming against that tenant. A second overlapping DynaKube doe
 | Metric spike in Notebooks but no Davis rows | Filter `fetch events` / `fetch dt.davis.events` without assuming `event.name == "ia-lab-500"` until a row confirms the name; wait for Preview to show a breach |
 | Problem opens then is already **CLOSED** | A single 500 de-alerts quickly. Keep a 500 loop running; use trigger state **active or closed** if needed |
 | `fetch_trigger_event` / `NOT_AUTHORIZED_FOR_TABLE` | Notebook user can query Grail; **workflow actor** cannot. Grant actor `storage:events:read` and usually `storage:buckets:read` |
+| `create_initial_incident` **discarded** | The task was skipped, not failed. Old condition required DQL rows (`records \| length > 0`). Problem trigger fires before Grail has Davis event rows, or the events/problems join returns none. Remove that custom condition and do not make Create Incident wait on `fetch_trigger_event`. |
+| `store_information`: `list object has no element 0` | `DT_root_event_id` still uses `result("fetch_trigger_event")["records"][0]`. DQL returned no rows. Set it to `{{ event()["event.id"] }}`. |
+| `store_information`: **Invalid JSON** / `Expected ',' or '}'` / Result `{}` | Ingest parses Business event data as JSON first. `{{ event()["event.id"] }}` is invalid inside a JSON string. Use `{{ event()['event.id'] }}` and `{{ result('create_initial_incident')['number'] }}`. |
 | Error evaluating `eventData`: `Undefined variables: k8s.namespace.name` | Custom-alert problems have no `k8s.*` properties. In **send_event_to_event-driven-ansible_2**, hardcode `"namespace": "ia-lab"` and `"pod_name": "load-test-app"` (do not use `event()["k8s.namespace.name"]`). Same literals in **store_information**. |
 | Create Incident or EDA POST: `host not in allowlist` / `NotCapable` | Add **both** [External requests](#external-requests-two-hosts): `ven05434.service-now.com` and `aap-aap.apps.cluster-rjpxx.dyn.redhatworkshops.io` (hostname only, no `https://`) |
 | Dynatrace close skipped | `problem_id` empty in Event data |
@@ -483,7 +497,8 @@ You are already consuming against that tenant. A second overlapping DynaKube doe
 | 401 Unauthorized from ServiceNow | Recreate the connection with a **local** integration user (`itil` + REST / `incident`); SSO users often have no local password |
 | Create Incident fails on category / assignment group | After import, replace template defaults: assignment group must not be `-1`; caller must be a real user or empty |
 | `incident_number` empty or EDA cannot document the ticket | Confirm task id is `create_initial_incident`; inspect the task result and use `.number` or `.result.number` as shown in a test run |
-| Workflow never starts | Template trigger ANDs `event.name == "ia-lab-500"` with `DAVIS_PROBLEM`. Confirm that match in a notebook, or drop the name filter / use `DAVIS_EVENT` |
+| Workflow never starts | Problem trigger filter `event.name == "ia-lab-500"` may not match. Confirm `event.name` on `fetch dt.davis.problems` in a notebook |
+| Multiple ServiceNow INCs for the same `problem_id` | Workflow used an **Event** query (one run per Grail row). Switch to **Problem trigger**, state **active**, **Updates off**. Correlation ID does not prevent duplicate INC create |
 
 
 

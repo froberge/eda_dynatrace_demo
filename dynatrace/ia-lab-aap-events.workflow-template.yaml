@@ -27,10 +27,13 @@ workflow:
     eventTrigger:
       isActive: true
       triggerConfiguration:
-        type: event
+        type: davis-problem
         value:
-          query: event.name == "ia-lab-500" and event.kind =="DAVIS_PROBLEM"
-          eventType: events
+          onProblemClose: false
+          categories:
+            custom: true
+            error: true
+          customFilter: event.name == "ia-lab-500"
   result: null
   type: STANDARD
   input: {}
@@ -41,11 +44,10 @@ workflow:
       name: store_information
       input:
         from: JSON
-        json: "{\n  \"eventType\": \"K8S_POD_REMEDIATION\",\n  \"DT_root_event_id\"\
-          : \"{{result(\"fetch_trigger_event\")[\"records\"][0][\"event.id\"]}}\"\
-          ,\n  \"namespace\": \"ia-lab\",\n  \"pod_name\": \"load-test-app\",\n  \"\
-          incident_number\": \"{{ result(\"create_initial_incident\")[\"number\"] }}\"\
-          ,\n  \"problem_id\": \"{{event()[\"event.id\"] }}\"\n}"
+        json: "{\n  \"aap.event_type\": \"K8S_POD_REMEDIATION\",\n  \"DT_root_event_id\"\
+          : \"{{ event()['event.id'] }}\",\n  \"namespace\": \"ia-lab\",\n  \"pod_name\"\
+          : \"load-test-app\",\n  \"incident_number\": \"{{ result('create_initial_incident')['number']\
+          }}\",\n  \"problem_id\": \"{{ event()['event.id'] }}\"\n}"
         eventType: ia-lab.aap.incident.created
         eventCategory: incident
         eventProvider: IA-Lab
@@ -62,17 +64,9 @@ workflow:
     fetch_trigger_event:
       name: fetch_trigger_event
       input:
-        query: "fetch dt.davis.events, from:now() - 7d\n| filter event.id in [\n \
-          \   fetch dt.davis.problems, from:now() - 7d\n    | filter matchesPhrase(event.id,\
-          \ \"{{event()[\"event.id\"]}}\")\n    | filter matchesPhrase(event.name,\
-          \ \"ia-lab-500\")\n    | filter not(dt.davis.is_duplicate)\n    | fieldsKeep\
-          \ dt.davis.event_ids\n]\n| join [\n    fetch dt.davis.problems, from:now()\
-          \ - 7d\n    | filter matchesPhrase(event.name, \"ia-lab-500\")\n    | filter\
-          \ not(dt.davis.is_duplicate)\n    | expand event_id = dt.davis.event_ids\n\
-          \    | fieldsKeep display_id, event_id\n], on: { left[event.id] == right[event_id]\
-          \ }\n| fieldsAdd problem_id = right.display_id\n| fields timestamp, problem_id,\
-          \ event.id, event.name, event.type, event.category, event.status, event.description,\
-          \ `aap-event-type`\n| sort timestamp asc"
+        query: "fetch dt.davis.problems, from:now() - 7d\n| filter event.id == \"{{ event()[\"\
+          event.id\"] }}\"\n| fields timestamp, display_id, event.id, event.name, event.status,\
+          \ event.category, event.description"
       action: dynatrace.automations:execute-dql-query
       position:
         x: 0
@@ -178,12 +172,10 @@ workflow:
         y: 2
       conditions:
         else: STOP
-        custom: '{{ result("fetch_trigger_event").records | length > 0 }}'
-        states:
-          fetch_trigger_event: OK
+        custom: ''
+        states: {}
       description: Create an incident in ServiceNow
-      predecessors:
-      - fetch_trigger_event
+      predecessors: []
     send_event_to_event-driven-ansible_2:
       name: send_event_to_event-driven-ansible_2
       input:
